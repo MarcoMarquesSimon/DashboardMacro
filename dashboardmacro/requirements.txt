@@ -2,3 +2,4 @@ pandas
 plotly
 streamlit
 altair<5
+imghdr
