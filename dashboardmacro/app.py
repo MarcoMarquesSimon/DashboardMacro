@@ -52,41 +52,33 @@ st.markdown(f"""
             max-width: 95rem;
         }}
 
-        .filter-bar {{
-            background: rgba(230,230,230,0.03);
-            border: 1px solid rgba(230,230,230,0.08);
-            border-radius: 18px;
-            padding: 0.8rem 1rem 0.35rem 1rem;
-            margin-bottom: 0.9rem;
-        }}
-
         .kpi-card {{
             background: {COR_SUPERFICIE};
-            border: 1px solid rgba(230,230,230,0.06);
-            padding: 8px 10px;
+            border: 1px solid rgba(230,230,230,0.07);
+            padding: 10px 12px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.4rem;
         }}
 
         .kpi-title {{
-            font-size: 0.68rem;
-            color: rgba(230,230,230,0.72);
-            margin-bottom: 2px;
-            line-height: 1.0;
+            font-size: 0.74rem;
+            color: rgba(230,230,230,0.78);
+            margin-bottom: 3px;
+            line-height: 1.05;
         }}
 
         .kpi-value {{
-            font-size: 0.92rem;
+            font-size: 1.05rem;
             font-weight: 700;
             color: {COR_TEXTO};
-            line-height: 1.0;
+            line-height: 1.05;
         }}
 
         .kpi-sub {{
-            font-size: 0.64rem;
-            color: rgba(230,230,230,0.50);
-            margin-top: 1px;
+            font-size: 0.68rem;
+            color: rgba(230,230,230,0.54);
+            margin-top: 2px;
             line-height: 1.0;
         }}
 
@@ -254,30 +246,45 @@ def adicionar_marcacoes_extremos(fig, df_plot, metrica):
     return fig
 
 
-def estilizar_layout_plotly(fig, titulo_legenda, altura=640):
+def estilizar_layout_plotly(fig, titulo_legenda, altura=760):
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor=COR_FUNDO,
         plot_bgcolor=COR_FUNDO,
-        font=dict(color=COR_TEXTO),
+        font=dict(color=COR_TEXTO, size=13),
         legend=dict(
-            title=titulo_legenda,
-            bgcolor="rgba(0,0,0,0)",
-            borderwidth=0
+            title=dict(
+                text=titulo_legenda,
+                font=dict(size=13, color=COR_TEXTO)
+            ),
+            font=dict(size=11, color=COR_TEXTO),
+            bgcolor="rgba(43,43,43,0.75)",
+            bordercolor="rgba(230,230,230,0.10)",
+            borderwidth=1,
+            orientation="v",
+            yanchor="top",
+            y=0.98,
+            xanchor="left",
+            x=1.02,
+            itemclick="toggleothers",
+            itemdoubleclick="toggle"
         ),
         height=altura,
-        margin=dict(l=10, r=10, t=50, b=10)
+        margin=dict(l=10, r=30, t=55, b=10)
     )
+
     fig.update_xaxes(
         showgrid=True,
         gridcolor="rgba(230,230,230,0.08)",
         zeroline=False
     )
+
     fig.update_yaxes(
         showgrid=True,
         gridcolor="rgba(230,230,230,0.08)",
         zeroline=False
     )
+
     return fig
 
 
@@ -347,8 +354,6 @@ if pagina == "Tesouro Direto":
             ],
             index=0
         )
-
-    st.markdown('</div>', unsafe_allow_html=True)
 
     if data_inicio > data_fim:
         st.warning("A data inicial não pode ser maior que a data final.")
@@ -438,7 +443,7 @@ if pagina == "Tesouro Direto":
 
     valor_atual, valor_min, valor_max = resumo_metrica(serie_global, coluna_valor)
 
-    col_principal, col_kpis = st.columns([3.4, 0.8])
+    col_principal, col_kpis = st.columns([4.2, 0.9])
 
     with col_principal:
         fig_linha = px.line(
@@ -457,7 +462,12 @@ if pagina == "Tesouro Direto":
             yaxis_title=coluna_valor,
             hovermode="x unified"
         )
-        fig_linha = estilizar_layout_plotly(fig_linha, "Título • Vencimento", altura=640)
+
+        fig_linha = estilizar_layout_plotly(
+            fig_linha,
+            "Título • Vencimento",
+            altura=760
+        )
 
         st.plotly_chart(fig_linha, use_container_width=True)
 
