@@ -466,7 +466,7 @@ if pagina == "Tesouro Direto":
         fig_linha = estilizar_layout_plotly(
             fig_linha,
             "Título • Vencimento",
-            altura=760
+            altura=780
         )
 
         st.plotly_chart(fig_linha, use_container_width=True)
