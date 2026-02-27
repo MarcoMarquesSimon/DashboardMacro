@@ -304,14 +304,10 @@ pagina = st.sidebar.radio(
 if pagina == "Tesouro Direto":
 
     st.title("Dashboard de Preços dos Títulos Públicos")
-    st.caption("Visualização interativa dos preços e taxas do Tesouro Direto")
 
     tipos_disponiveis = sorted(df["Tipo Titulo"].dropna().unique())
     data_min = df["Data Base"].min().date()
     data_max = df["Data Base"].max().date()
-
-    st.markdown('<div class="section-title">Seleção</div>', unsafe_allow_html=True)
-    st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
 
     col_f1, col_f2, col_f3, col_f4 = st.columns([2.4, 1.05, 1.05, 1.15])
 
