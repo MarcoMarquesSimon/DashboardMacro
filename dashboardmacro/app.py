@@ -170,7 +170,7 @@ def adicionar_marcacoes_extremos(fig, df_plot, metrica):
     series_unicas = list(df_plot["Nome Serie"].unique())
 
     # Só adiciona marcações se houver menos de 3 séries
-    if len(series_unicas) >= 3:
+    if len(series_unicas) >= 2:
         return fig
 
     for serie in series_unicas:
