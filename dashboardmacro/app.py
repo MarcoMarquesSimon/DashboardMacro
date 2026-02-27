@@ -303,7 +303,7 @@ pagina = st.sidebar.radio(
 # =========================
 if pagina == "Tesouro Direto":
 
-    st.title("Dashboard de Preços dos Títulos Públicos")
+    st.title("Títulos Públicos")
 
     tipos_disponiveis = sorted(df["Tipo Titulo"].dropna().unique())
     data_min = df["Data Base"].min().date()
