@@ -246,7 +246,7 @@ def adicionar_marcacoes_extremos(fig, df_plot, metrica):
     return fig
 
 
-def estilizar_layout_plotly(fig, titulo_legenda, altura=760):
+def estilizar_layout_plotly(fig, titulo_legenda, altura=780):
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor=COR_FUNDO,
@@ -255,22 +255,22 @@ def estilizar_layout_plotly(fig, titulo_legenda, altura=760):
         legend=dict(
             title=dict(
                 text=titulo_legenda,
-                font=dict(size=13, color=COR_TEXTO)
+                font=dict(size=12, color=COR_TEXTO)
             ),
-            font=dict(size=11, color=COR_TEXTO),
-            bgcolor="rgba(43,43,43,0.75)",
-            bordercolor="rgba(230,230,230,0.10)",
+            font=dict(size=10, color=COR_TEXTO),
+            bgcolor="rgba(43,43,43,0.55)",
+            bordercolor="rgba(230,230,230,0.08)",
             borderwidth=1,
-            orientation="v",
-            yanchor="top",
-            y=0.98,
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
             xanchor="left",
-            x=1.02,
+            x=0,
             itemclick="toggleothers",
             itemdoubleclick="toggle"
         ),
         height=altura,
-        margin=dict(l=10, r=30, t=55, b=10)
+        margin=dict(l=10, r=10, t=95, b=10)
     )
 
     fig.update_xaxes(
