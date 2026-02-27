@@ -164,11 +164,14 @@ def resumo_metrica(df_base, metrica):
 
 def adicionar_marcacoes_extremos(fig, df_plot, metrica):
     """
-    Até 6 séries: mostra Mín, Máx e Atual
-    Acima de 6 séries: mostra só Atual
+    Mostra rótulos de Mín, Máx e Atual apenas quando houver
+    menos de 3 séries no gráfico.
     """
     series_unicas = list(df_plot["Nome Serie"].unique())
-    mostrar_extremos_completos = len(series_unicas) <= 6
+
+    # Só adiciona marcações se houver menos de 3 séries
+    if len(series_unicas) >= 3:
+        return fig
 
     for serie in series_unicas:
         base_serie = (
@@ -181,48 +184,46 @@ def adicionar_marcacoes_extremos(fig, df_plot, metrica):
             continue
 
         ponto_atual = base_serie.iloc[-1]
+        ponto_min = base_serie.loc[base_serie[metrica].idxmin()]
+        ponto_max = base_serie.loc[base_serie[metrica].idxmax()]
 
-        if mostrar_extremos_completos:
-            ponto_min = base_serie.loc[base_serie[metrica].idxmin()]
-            ponto_max = base_serie.loc[base_serie[metrica].idxmax()]
-
-            fig.add_trace(
-                go.Scatter(
-                    x=[ponto_min["Data Base"]],
-                    y=[ponto_min[metrica]],
-                    mode="markers+text",
-                    text=["Mín"],
-                    textposition="bottom center",
-                    marker=dict(size=7, symbol="diamond", color=COR_TEXTO),
-                    name=f"{serie} - Mín",
-                    showlegend=False,
-                    hovertemplate=(
-                        f"{serie}<br>"
-                        f"Data: {ponto_min['Data Base'].strftime('%d/%m/%Y')}<br>"
-                        f"{metrica}: {ponto_min[metrica]:.2f}<br>"
-                        "Marcador: Mín<extra></extra>"
-                    )
+        fig.add_trace(
+            go.Scatter(
+                x=[ponto_min["Data Base"]],
+                y=[ponto_min[metrica]],
+                mode="markers+text",
+                text=["Mín"],
+                textposition="bottom center",
+                marker=dict(size=7, symbol="diamond", color=COR_TEXTO),
+                name=f"{serie} - Mín",
+                showlegend=False,
+                hovertemplate=(
+                    f"{serie}<br>"
+                    f"Data: {ponto_min['Data Base'].strftime('%d/%m/%Y')}<br>"
+                    f"{metrica}: {ponto_min[metrica]:.2f}<br>"
+                    "Marcador: Mín<extra></extra>"
                 )
             )
+        )
 
-            fig.add_trace(
-                go.Scatter(
-                    x=[ponto_max["Data Base"]],
-                    y=[ponto_max[metrica]],
-                    mode="markers+text",
-                    text=["Máx"],
-                    textposition="top center",
-                    marker=dict(size=7, symbol="diamond", color=COR_TEXTO),
-                    name=f"{serie} - Máx",
-                    showlegend=False,
-                    hovertemplate=(
-                        f"{serie}<br>"
-                        f"Data: {ponto_max['Data Base'].strftime('%d/%m/%Y')}<br>"
-                        f"{metrica}: {ponto_max[metrica]:.2f}<br>"
-                        "Marcador: Máx<extra></extra>"
-                    )
+        fig.add_trace(
+            go.Scatter(
+                x=[ponto_max["Data Base"]],
+                y=[ponto_max[metrica]],
+                mode="markers+text",
+                text=["Máx"],
+                textposition="top center",
+                marker=dict(size=7, symbol="diamond", color=COR_TEXTO),
+                name=f"{serie} - Máx",
+                showlegend=False,
+                hovertemplate=(
+                    f"{serie}<br>"
+                    f"Data: {ponto_max['Data Base'].strftime('%d/%m/%Y')}<br>"
+                    f"{metrica}: {ponto_max[metrica]:.2f}<br>"
+                    "Marcador: Máx<extra></extra>"
                 )
             )
+        )
 
         fig.add_trace(
             go.Scatter(
