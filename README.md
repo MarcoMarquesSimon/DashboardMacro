@@ -1,117 +1,98 @@
-# Dashboard de Precos dos Titulos Publicos
+# WebApp Tesouro Direto
 
 ## Visao geral
 
-Este projeto consiste em um webapp desenvolvido em Streamlit para visualizacao interativa dos precos e taxas dos titulos publicos do Tesouro Direto. O objetivo do aplicativo e oferecer uma interface limpa, profissional e orientada a analise, permitindo filtrar os dados por tipo de titulo, intervalo de datas e vencimentos, alem de acompanhar a evolucao historica de metricas relevantes.
+Este projeto e um webapp desenvolvido em Streamlit para analise visual de precos e taxas de titulos publicos do Tesouro Direto.
 
-A aplicacao foi desenhada para priorizar:
+O aplicativo foi pensado para um uso profissional: interface limpa, foco em legibilidade, filtros objetivos e visualizacoes que ajudam a comparar diferentes combinacoes de titulo e vencimento ao longo do tempo.
 
-- clareza visual;
-- desempenho no carregamento;
-- leitura financeira objetiva;
-- facilidade de manutencao e extensao.
+A aplicacao consome diretamente a base publica do Tesouro Transparente, trata os dados e entrega um dashboard interativo para acompanhamento de:
 
-O dashboard utiliza dados publicos disponibilizados pelo Tesouro Transparente, lidos diretamente a partir de um arquivo CSV hospedado na infraestrutura oficial do governo.
+- taxa de compra
+- taxa de venda
+- PU de compra
+- PU de venda
+- PU base
+
+Cada serie exibida no grafico principal e tratada como uma combinacao unica de:
+
+- tipo de titulo
+- data de vencimento
+
+Isso evita misturar curvas distintas dentro do mesmo grupo de titulo e torna a leitura financeira mais correta.
+
+---
 
 ## Principais funcionalidades
 
-### 1. Carregamento automatico da base
+### Dashboard de Tesouro Direto
 
-O app consome automaticamente o dataset de precos e taxas do Tesouro Direto, sem necessidade de download manual do usuario.
+- filtro por tipo de titulo
+- filtro por intervalo de data base
+- filtro por vencimentos, com pre-selecao de titulos ainda vigentes
+- opcao para incluir titulos com vencimento passado
+- grafico temporal principal por titulo + vencimento
+- marcacoes de minimo, maximo e valor atual quando a quantidade de series permite
+- painel lateral de KPIs compactas
+- tabela detalhada com modo enxuto e colunas adicionais opcionais
+- exportacao dos dados filtrados em CSV
 
-### 2. Filtros interativos
+### Estrutura preparada para expansao
 
-O painel principal permite:
+A aplicacao ja possui uma segunda pagina chamada **Analise Macro**, mantida propositalmente em branco para futuras extensoes do projeto.
 
-- selecionar um ou mais tipos de titulo;
-- definir intervalo de datas por calendario;
-- escolher a metrica principal exibida no grafico;
-- refinar os vencimentos exibidos.
+Isso facilita a evolucao para um repositorio com mais de um dashboard, preservando a mesma identidade visual.
 
-Por padrao, o filtro de vencimentos prioriza apenas titulos ainda vigentes. Titulos com vencimento passado podem ser incluidos opcionalmente.
-
-### 3. Separacao correta por titulo e vencimento
-
-Cada serie exibida no grafico representa a combinacao:
-
-- tipo de titulo;
-- data de vencimento.
-
-Isso evita agregacoes indevidas entre vencimentos diferentes de um mesmo titulo.
-
-### 4. Grafico principal de evolucao temporal
-
-O grafico central mostra a evolucao historica da metrica selecionada ao longo da Data Base, com uma serie separada para cada combinacao de titulo e vencimento.
-
-O grafico tambem destaca:
-
-- valor atual;
-- valor minimo;
-- valor maximo.
-
-Quando existem muitas series, o app reduz a quantidade de marcacoes visuais para preservar a limpeza do layout.
-
-### 5. Painel lateral de indicadores
-
-Ao lado do grafico principal, o app exibe indicadores resumidos com leitura rapida:
-
-- taxa media;
-- PU medio;
-- valor atual;
-- valor minimo;
-- valor maximo.
-
-### 6. Tabela detalhada
-
-O usuario pode consultar a base filtrada em formato tabular, com:
-
-- colunas principais exibidas por padrao;
-- colunas adicionais opcionais;
-- exportacao dos dados filtrados em CSV.
-
-### 7. Estrutura preparada para expansao
-
-A sidebar foi mantida como area de navegacao. Alem do dashboard principal de Tesouro Direto, o projeto ja inclui uma pagina reservada para um futuro painel de analise macro.
+---
 
 ## Arquitetura do projeto
 
-A estrutura minima esperada do projeto e a seguinte:
+O projeto foi organizado em dois arquivos principais:
 
 ```text
-projeto_tesouro/
-├── app.py
-├── dados_tesouro.py
-└── README_webapp_tesouro_direto.md
+.
+|- app.py
+|- dados_tesouro.py
+|- requirements.txt
+|- README.md
 ```
-
-### `app.py`
-
-Arquivo principal da aplicacao Streamlit. Responsavel por:
-
-- configuracao da pagina;
-- aplicacao do tema visual;
-- renderizacao dos filtros;
-- construcao dos graficos;
-- exibicao das KPIs;
-- renderizacao da tabela;
-- navegacao entre paineis.
 
 ### `dados_tesouro.py`
 
-Modulo responsavel pela carga e padronizacao da base. Contem a funcao que:
+Responsavel pela camada de carga e tratamento inicial dos dados.
 
-- le o CSV do Tesouro;
-- converte colunas de data;
-- converte colunas numericas;
-- devolve um DataFrame pronto para uso.
+Funcoes principais:
 
-## Dataset utilizado
+- leitura do CSV publico do Tesouro Transparente
+- conversao das colunas de data
+- conversao das colunas numericas
+- retorno de um `DataFrame` pronto para uso no dashboard
 
-O aplicativo usa o arquivo CSV oficial do Tesouro Transparente referente aos precos e taxas dos titulos do Tesouro Direto.
+### `app.py`
 
-### Colunas principais da base
+Responsavel pela interface, logica de filtros e exibicao dos componentes visuais.
 
-A base carregada possui, atualmente, as seguintes colunas:
+Blocos principais:
+
+- configuracao da pagina
+- definicao da paleta e do estilo visual
+- funcoes auxiliares de formatacao e resumo
+- carregamento com cache
+- navegacao entre dashboards
+- dashboard do Tesouro Direto
+- pagina reservada para Analise Macro
+
+---
+
+## Fonte de dados
+
+A base utilizada vem do portal **Tesouro Transparente** e e consumida diretamente por URL.
+
+Dataset utilizado:
+
+- `precotaxatesourodireto.csv`
+
+Estrutura esperada da base:
 
 - `Tipo Titulo`
 - `Data Vencimento`
@@ -122,228 +103,313 @@ A base carregada possui, atualmente, as seguintes colunas:
 - `PU Venda Manha`
 - `PU Base Manha`
 
-### Interpretacao geral das colunas
-
-- **Tipo Titulo**: nome do titulo publico.
-- **Data Vencimento**: data de vencimento do papel.
-- **Data Base**: data de referencia do preco/taxa.
-- **Taxa Compra Manha**: taxa praticada na compra no periodo da manha.
-- **Taxa Venda Manha**: taxa praticada na venda no periodo da manha.
-- **PU Compra Manha**: preco unitario de compra no periodo da manha.
-- **PU Venda Manha**: preco unitario de venda no periodo da manha.
-- **PU Base Manha**: preco unitario de referencia no periodo da manha.
+---
 
 ## Requisitos
 
-Para executar o projeto, e recomendavel usar Python 3.10 ou superior.
+### Requisitos de software
 
-### Bibliotecas necessarias
+- Python 3.10 ou superior
+- `pip` instalado
+- acesso a internet para leitura do CSV remoto
+
+### Dependencias Python
+
+As dependencias estao listadas no arquivo `requirements.txt`.
+
+Pacotes principais:
 
 - `streamlit`
 - `pandas`
 - `plotly`
 
-Instalacao via `pip`:
+---
+
+## Instalacao local
+
+### 1. Clonar o repositorio
 
 ```bash
-pip install streamlit pandas plotly
+git clone <URL_DO_REPOSITORIO>
+cd <NOME_DO_REPOSITORIO>
 ```
 
-## Como executar o projeto
+### 2. Criar ambiente virtual
 
-No terminal, dentro da pasta do projeto, execute:
+#### Windows
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+#### Linux ou macOS
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Instalar dependencias
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Executar a aplicacao
 
 ```bash
 streamlit run app.py
 ```
 
-O Streamlit iniciara um servidor local e abrira o aplicativo no navegador.
+Apos a execucao, o Streamlit abrira o aplicativo localmente no navegador.
 
-## Funcao de carga de dados
+---
 
-O modulo `dados_tesouro.py` deve conter uma funcao semelhante a esta:
+## Como usar
 
-```python
-import pandas as pd
+### 1. Selecionar os titulos
 
+Na barra superior, escolha um ou mais titulos para analise.
 
-def dados_tesouro(url):
-    df = pd.read_csv(url, sep=';')
+### 2. Definir o intervalo de datas
 
-    df['Data Vencimento'] = pd.to_datetime(df['Data Vencimento'], format='%d/%m/%Y')
-    df['Data Base'] = pd.to_datetime(df['Data Base'], format='%d/%m/%Y')
+Use os campos de calendario para determinar:
 
-    for coluna in df.columns[3:]:
-        df[coluna] = df[coluna].replace(',', '.', regex=True)
-        df[coluna] = df[coluna].astype(float)
+- data inicial
+- data final
 
-    return df
-```
+Esses filtros atuam sobre a coluna `Data Base`.
 
-## Logica de funcionamento
+### 3. Escolher a metrica principal
 
-### 1. Carga e cache
+Selecione a metrica que sera plotada no grafico principal:
 
-Ao iniciar, o app carrega os dados a partir da URL oficial e utiliza cache para evitar recargas desnecessarias a cada interacao. Isso melhora significativamente o desempenho.
+- Taxa Compra Manha
+- Taxa Venda Manha
+- PU Compra Manha
+- PU Venda Manha
+- PU Base Manha
 
-### 2. Filtragem principal
+### 4. Refinar os vencimentos
 
-Os filtros de topo atuam sobre:
+No painel expansivel de vencimentos:
 
-- tipos de titulo;
-- intervalo da Data Base;
-- metrica principal do grafico.
+- por padrao, o app pre-seleciona apenas vencimentos ainda ativos
+- o usuario pode optar por incluir vencimentos passados
 
-### 3. Refinamento por vencimento
+### 5. Interpretar o grafico
 
-O filtro de vencimentos aparece em um bloco secundario, mais discreto. Essa escolha foi feita para manter o layout limpo.
+Cada curva representa uma serie unica no formato:
 
-A logica aplicada e:
+`Tipo Titulo - Data Vencimento`
 
-- selecionar automaticamente apenas vencimentos futuros ou vigentes;
-- permitir a inclusao manual de vencimentos passados;
-- manter cada vencimento como serie independente.
+Quando ha poucas series simultaneas, o app adiciona marcacoes de:
 
-### 4. Construcao do identificador de serie
+- minimo
+- maximo
+- valor atual
 
-Cada linha e identificada por um nome de serie padronizado:
+### 6. Consultar a tabela detalhada
 
-```text
-Tipo Titulo • Data Vencimento
-```
+A tabela final pode ser visualizada de forma mais enxuta ou expandida com colunas adicionais.
 
-Isso garante clareza na legenda e nos marcadores do grafico.
+### 7. Exportar os dados filtrados
 
-### 5. Painel de indicadores
+Use o botao de download para baixar um CSV com os dados atualmente filtrados.
 
-As KPIs laterais resumem a condicao atual do recorte selecionado, oferecendo leitura rapida sem competir visualmente com o grafico principal.
-
-### 6. Tabela e exportacao
-
-A tabela final permite inspecao detalhada e exportacao da base filtrada para CSV, facilitando analises externas.
-
-## Identidade visual
-
-O webapp foi construindo com uma paleta institucional, priorizando contraste, legibilidade e sobriedade.
-
-### Paleta principal
-
-- Azul principal: `#0F46AB`
-- Azul escuro de fundo: `#061630`
-- Texto claro: `#E6E6E6`
-- Superficie secundaria: `#2B2B2B`
-
-### Objetivos visuais
-
-- manter a interface limpa;
-- reduzir excesso de elementos simultaneos;
-- destacar o grafico principal como foco da analise;
-- usar indicadores compactos e discretos;
-- transmitir uma estetica proxima a dashboards institucionais e financeiros.
+---
 
 ## Decisoes de design
 
-Algumas decisoes importantes no projeto:
+O dashboard foi desenhado com foco em:
 
-### Sidebar reservada para navegacao
+- legibilidade em ambiente profissional
+- baixa poluicao visual
+- contraste elevado
+- hierarquia clara entre grafico, KPIs e tabela
+- navegacao simples
 
-A sidebar nao concentra filtros. Ela foi mantida apenas para alternar entre dashboards, evitando poluicao visual na lateral.
+### Paleta adotada
 
-### Filtros em barra superior
+- `#0F46AB` - azul principal
+- `#061630` - fundo principal
+- `#E6E6E6` - texto claro
+- `#2B2B2B` - superficies e cards
 
-Os filtros principais foram colocados no topo, em formato horizontal, para facilitar leitura e reduzir a sensacao de formulario extenso.
+### Estrategia visual
 
-### KPIs compactas
+- o grafico principal recebe a maior area da tela
+- as KPIs ficam compactas e alinhadas verticalmente
+- a sidebar e usada apenas para navegacao entre dashboards
+- os filtros principais ficam no topo, em faixa horizontal
 
-As KPIs ficam em uma coluna lateral, com cards curtos e de fundo solido, servindo como apoio de leitura e nao como elemento central.
+---
 
-### Grafico como foco principal
+## Regras de negocio implementadas
 
-O layout favorece a largura do grafico de evolucao temporal, uma vez que ele representa o elemento mais importante para a interpretacao dos dados.
+### Series independentes por vencimento
 
-### Tabela simplificada por padrao
+Mesmo quando o mesmo tipo de titulo aparece com varios vencimentos, o app trata cada vencimento como uma serie separada.
 
-Para manter a interface limpa, a tabela detalhada exibe inicialmente apenas as colunas mais relevantes. Colunas complementares ficam disponiveis sob demanda.
+Isso evita agregar informacoes que deveriam permanecer distintas.
 
-## Personalizacao e manutencao
+### Vencimentos ativos como padrao
 
-O projeto foi estruturado para facilitar evolucoes futuras.
+O filtro de vencimentos pre-seleciona apenas titulos ainda vigentes.
 
-### Alterar a fonte dos dados
+Essa escolha melhora a experiencia padrao do usuario e reduz ruido visual, mantendo os vencidos disponiveis apenas quando necessario.
 
-Para trocar o dataset, basta substituir a URL utilizada no `app.py` e garantir que a estrutura das colunas seja compatível com o parser.
+### Controle de poluicao visual no grafico
 
-### Alterar a paleta
+As marcacoes de minimo, maximo e atual aparecem de forma adaptativa:
 
-As cores principais estao centralizadas em variaveis no topo do `app.py`, o que facilita ajustes de identidade visual.
+- com poucas series, o detalhe e exibido
+- com muitas series, o app prioriza limpeza visual
 
-### Adicionar novas metricas
+---
 
-Novas colunas numericas podem ser incorporadas ao seletor de metricas desde que existam na base e sejam tratadas na carga.
+## Personalizacao
 
-### Criar novos dashboards
+### Alterar a paleta de cores
 
-A pagina de analise macro ja esta prevista e pode ser expandida com novos datasets, indicadores e graficos sem alterar a estrutura principal do app.
+As cores centrais estao no inicio do `app.py`:
 
-## Possiveis melhorias futuras
+```python
+COR_PRIMARIA = "#0F46AB"
+COR_FUNDO = "#061630"
+COR_TEXTO = "#E6E6E6"
+COR_SUPERFICIE = "#2B2B2B"
+```
 
-Algumas evolucoes recomendadas para as proximas versoes:
+### Alterar a metrica padrao
 
-- renomear as metricas com rotulos mais amigaveis na interface;
-- incluir comparacao entre dois titulos especificos;
-- adicionar variacao diaria, semanal ou acumulada;
-- criar filtros avancados por faixa de taxa ou faixa de PU;
-- adicionar tabela com ranking de titulos;
-- incluir exportacao em Excel;
-- integrar indicadores macroeconomicos no segundo painel;
-- adicionar documentacao tecnica de deploy.
+A metrica inicial e definida no `selectbox` com o parametro `index=0`.
 
-## Boas praticas recomendadas
+### Alterar a URL da base
 
-Para manter o projeto robusto e organizado:
+A URL do dataset esta centralizada em:
 
-- manter o parser de dados separado da interface;
-- evitar logica de transformacao diretamente no layout quando possivel;
-- validar a estrutura da base sempre que o dataset oficial mudar;
-- testar o app com multiplas combinacoes de filtros;
-- revisar o layout ao adicionar novos componentes para nao comprometer a limpeza visual.
+```python
+URL = "..."
+```
 
-## Solucao de problemas
+Se o endpoint mudar, basta atualizar esse valor.
 
-### O app nao inicia
+### Adicionar novas paginas
 
-Verifique se as bibliotecas necessarias estao instaladas corretamente e se o comando esta sendo executado na pasta do projeto.
+A estrutura com `radio` na sidebar permite incluir novas secoes facilmente, como:
 
-### O dataset nao carrega
+- curva de juros
+- comparacao entre indexadores
+- indicadores macro
+- analise historica por titulo especifico
+
+---
+
+## Deploy no Streamlit Community Cloud
+
+### Estrutura recomendada do repositorio
+
+Para deploy no Streamlit Community Cloud, mantenha:
+
+- `app.py` como ponto de entrada
+- `requirements.txt` na raiz do repositorio
+- `dados_tesouro.py` no mesmo diretorio do app ou em modulo importavel
+
+### Passo a passo
+
+1. Suba o projeto para um repositorio no GitHub.
+2. Garanta que o arquivo `requirements.txt` esteja presente.
+3. Acesse o Streamlit Community Cloud.
+4. Escolha o repositorio.
+5. Defina `app.py` como arquivo principal.
+6. Conclua o deploy.
+
+### Observacoes de deploy
+
+- o app depende de acesso externo ao CSV do Tesouro Transparente
+- se houver mudanca na estrutura da base, o parser pode precisar de ajuste
+- se forem adicionadas dependencias de sistema, sera necessario um `packages.txt`
+
+---
+
+## Troubleshooting
+
+### O app nao abre
 
 Verifique:
 
-- conexao com a internet;
-- disponibilidade da URL oficial;
-- possiveis mudancas no layout do CSV publicado.
+- se o ambiente virtual esta ativado
+- se as dependencias foram instaladas
+- se o comando executado foi `streamlit run app.py`
 
-### O grafico aparece vazio
+### Erro ao carregar os dados
 
-Isso geralmente ocorre quando:
+Possiveis causas:
 
-- nao ha titulos selecionados;
-- o intervalo de datas e muito restritivo;
-- nenhum vencimento permanece selecionado apos o refinamento.
+- indisponibilidade temporaria do endpoint remoto
+- alteracao no layout do CSV
+- indisponibilidade de internet
 
-### Valores numericos aparecem incorretos
+### Grafico vazio
 
-Confirme se o parser continua convertendo corretamente separadores decimais e tipos numericos.
+Geralmente ocorre quando:
 
-## Licenciamento e fonte dos dados
+- o intervalo de datas nao possui registros
+- nenhum titulo foi selecionado
+- nenhum vencimento permaneceu marcado apos o refinamento
 
-Os dados utilizados no projeto sao publicos e provenientes do portal Tesouro Transparente. Antes de publicar ou redistribuir o app, recomenda-se verificar:
+### Deploy falha no Streamlit Cloud
 
-- a politica de uso dos dados publicos;
-- necessidade de citacao da fonte;
-- eventuais mudancas no endpoint oficial.
+Confira:
 
-## Resumo
+- se `requirements.txt` esta na raiz do repositorio ou na pasta do arquivo principal
+- se o arquivo de entrada esta correto
+- se as bibliotecas necessarias estao listadas
 
-Este webapp foi desenvolvido para oferecer uma leitura profissional dos precos e taxas dos titulos publicos, com foco em visualizacao clara, filtros objetivos e estrutura pronta para evolucao.
+---
 
-A combinacao entre Streamlit, Pandas e Plotly torna o projeto simples de manter, rapido de executar e suficientemente flexivel para crescer para outros modulos analiticos.
+## Roadmap sugerido
+
+Algumas evolucoes naturais para este projeto:
+
+- pagina de analise macroeconomica
+- comparacao direta entre dois titulos
+- renomeacao amigavel das metricas na interface
+- filtros por faixa de taxa e faixa de PU
+- destaque automatico de melhores e piores variacoes
+- exportacao de relatorios em Excel ou PDF
+- comparativos entre dias, semanas e meses
+
+---
+
+## Boas praticas recomendadas
+
+- manter o arquivo de carga de dados separado da camada de interface
+- centralizar cores, textos e configuracoes principais
+- usar cache para evitar recarga desnecessaria
+- testar o app com varios filtros simultaneos
+- validar periodicamente se a estrutura do dataset remoto continua a mesma
+
+---
+
+## Licenca
+
+Defina a licenca conforme a estrategia do projeto.
+
+Se for um projeto pessoal ou interno, uma opcao simples e manter o repositorio privado ou adicionar uma licenca apropriada, como MIT, caso deseje compartilhamento aberto.
+
+---
+
+## Autor
+
+Projeto desenvolvido para visualizacao profissional de dados do Tesouro Direto em Streamlit.
+
+Se desejar, este README pode ser expandido com:
+
+- badges de versao
+- screenshots do app
+- GIF demonstrando uso
+- instrucoes de contribuicao
+- changelog
