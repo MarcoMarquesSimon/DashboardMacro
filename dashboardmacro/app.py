@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from dashboardmacro.dados_tesouro import dados_tesouro
+from dados_tesouro import dados_tesouro
 
 
 # =========================
