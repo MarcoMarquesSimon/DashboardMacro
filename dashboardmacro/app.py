@@ -252,6 +252,13 @@ def estilizar_layout_plotly(fig, titulo_legenda, altura=780):
         paper_bgcolor=COR_FUNDO,
         plot_bgcolor=COR_FUNDO,
         font=dict(color=COR_TEXTO, size=13),
+        title=dict(
+            x=0,
+            xanchor="left",
+            y=0.97,
+            yanchor="top",
+            font=dict(size=18, color=COR_TEXTO)
+        ),
         legend=dict(
             title=dict(
                 text=titulo_legenda,
@@ -263,14 +270,14 @@ def estilizar_layout_plotly(fig, titulo_legenda, altura=780):
             borderwidth=1,
             orientation="h",
             yanchor="bottom",
-            y=1.02,
+            y=1.01,
             xanchor="left",
             x=0,
             itemclick="toggleothers",
             itemdoubleclick="toggle"
         ),
         height=altura,
-        margin=dict(l=10, r=10, t=95, b=10)
+        margin=dict(l=10, r=10, t=130, b=10)
     )
 
     fig.update_xaxes(
