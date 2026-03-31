@@ -1,0 +1,17 @@
+.DS_Store
+Thumbs.db
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+.env
+.streamlit/secrets.toml
+
+dashboardmacro/.cache_sgs/
+dashboardmacro/.cache_sgs_test/
+dashboardmacro/**/__pycache__/
