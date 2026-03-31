@@ -1,0 +1,57 @@
+indicador;unidade;codigo;nome;periodicidade;grupo;tipo_grafico;key;acumular_12m;mostrar_dashboard;ordem
+PIB - R$ (milhões);R$;4382;PIB acumulado dos últimos 12 meses - Valores correntes (R$ milhões);mensal;Crescimento Econômico;linhas;pib_r;;sim;1
+PIB - US$ (milhões);US$;4192;PIB acumulado dos últimos 12 meses - Em US$ milhões;mensal;Crescimento Econômico;linhas;pib_us;;sim;1
+Crescimento do PIB - Var. % anual;%;7326;Produto Interno Bruto - Taxa de variação real no ano;anual;Crescimento Econômico;barras;crescimento_pib_anual;;sim;1
+PIB Agropecuária - Var. % anual;%;7327;PIB - Agropecuária - Taxa de variação real no ano;anual;Crescimento Econômico;barras;pib_agropecuaria_anual;;sim;1
+PIB Indústria - Var. % anual;%;7328;PIB - Indústria - Taxa de variação real no ano;anual;Crescimento Econômico;barras;pib_industria_anual;;sim;1
+PIB Serviços - Var. % anual;%;7329;PIB - Serviços - Taxa de variação real no ano;anual;Crescimento Econômico;barras;pib_servicos_anual;;sim;1
+Consumo de energial Industrial - GWh;GWh;1404;Consumo de energia elétrica - Brasil - Industrial;mensal;Crescimento Econômico;linhas;consumo_energial_industrial;;sim;1
+Consumo de energia Comercial - GWh;GWh;1402;Consumo de energia elétrica - Comercial;mensal;Crescimento Econômico;linhas;consumo_energia_comercial;;sim;1
+
+Taxa de desocupação - PNADC;%;24369;Taxa de desocupação - PNADC;mensal;Mercado de Trabalho;linhas;taxa_desocupacao_pnadc;;sim;1
+Rendimento médio real habitual das pessoas ocupadas - PNADC;R$;24382;Rendimento médio real habitual das pessoas ocupadas - PNADC;mensal;Mercado de Trabalho;linhas;rendimento_medio_real_habitual;;sim;1
+População na força de trabalho - PNADC;unidades (mil);24378;População na força de trabalho - PNADC;mensal;Mercado de Trabalho;linhas;populacao_forca_trabalho_pnadc;;sim;1
+Pessoas ocupadas - PNADC;unidades (mil);24379;Pessoas ocupadas - PNADC;mensal;Mercado de Trabalho;linhas;pessoas_ocupadas_pnadc;;sim;1
+
+Endividamento das famílias com o SFN em relação à renda acumulada UDM;%;29037;Endividamento Famílias SFN / renda 12m;mensal;Endividamento das famílias;linhas;endividamento_familias_sfn;;sim;1
+Endividamento das famílias com o SFN ex-crédito habitacional em relação à renda acumulada UDM;%;29038;Endividamento Famílias SFN / Renda 12m ex-habitacional;mensal;Endividamento das famílias;linhas;endividamento_familias_ex_hab;;sim;1
+Taxa média de juros das operações de crédito PF;%;20716;Taxa média de juros das operações de crédito - Pessoa Física;mensal;Endividamento das famílias;linhas;taxa_juros_pf;;sim;1
+Taxa média de juros das operações de crédito PJ;%;20718;Taxa média de juros das operações de crédito - Pessoa Jurídica;mensal;Endividamento das famílias;linhas;taxa_juros_pj;;sim;1
+Inadimplencia da Carteira - PF;%;21084;Inadimplência da carteira de crédito - Pessoa Física;mensal;Endividamento das famílias;linhas;inadimplencia_pf;;sim;1
+Inadimplencia da Carteira - PJ;%;21083;Inadimplência da carteira de crédito - Pessoa Jurídica;mensal;Endividamento das famílias;linhas;inadimplencia_pj;;sim;1
+Percentual da carteira com atraso entre 15 e 90 dias - PF;%;21005;Percentual da carteira com atraso entre 15 e 90 dias - Pessoas físicas;mensal;Endividamento das famílias;linhas;carteira_atraso_15_90_pf;;sim;1
+Percentual da carteira com atraso entre 15 e 90 dias - PJ;%;21004;Percentual da carteira com atraso entre 15 e 90 dias - Pessoas jurídicas;mensal;Endividamento das famílias;linhas;carteira_atraso_15_90_pj;;sim;1
+
+Meios de pagamento - M1 (saldo diário) - Novo;R$;27785;Agregado Monetário M1;diário;Juros e inflação;linhas;agregado_monetario_m1;;não;1
+IPCA 12 meses;%;13522;Índice nacional de preços ao consumidor - amplo (IPCA) - em 12 meses;mensal;Juros e inflação;barras;ipca_12_meses;;sim;1
+M1 - Var. 12m (%);%;;M1 - Variação 12 meses;mensal;Juros e inflação;linhas;m1_var_12m;;sim;1
+Inflação 12m vs M1 YoY;%;;Inflação 12m vs M1 YoY;mensal;Juros e inflação;linhas;inflacao12_m1yoy;;sim;1
+Juro Nominal (Selic target) - a.a.;%;432;Taxa de juros - Meta Selic definida pelo Copom;diário;Juros e inflação;linhas;juro_nominal_br;;sim;1
+IPCA - Var. % mensal;%;433;Índice nacional de preços ao consumidor-amplo (IPCA);mensal;Juros e inflação;barras;ipca_mensal;;sim;1
+Livres - Var. % mensal;%;11428;Índice nacional de preços ao consumidor - Amplo (IPCA) - Itens livres;mensal;Juros e inflação;barras;livres_mensal;;sim;1
+Inflação - Administrados - Var. % mensal;%;4449;Índice Nacional de Preços ao Consumidor - Amplo (IPCA) - Administrados;mensal;Juros e inflação;barras;administrados_mensal;;sim;1
+Inflação (IGP-M) - Var. % mensal;%;189;Índice geral de preços do mercado (IGP-M);mensal;Juros e inflação;barras;inflacao_mensal;;sim;1
+
+Transações Correntes 12m - Mensal;US$;24419;Transações correntes - Mensal - 12M;mensal;Balanço de pagamentos;barras;transacoes_correntes;;sim;1
+IDP Pais 12M;US$;24422;Investimento Direto no País - 12M;mensal;Balanço de pagamentos;barras;ide_pais_12m;;sim;1
+Transações Correntes - IDP 12m;US$;;Saldo Transações Correntes - IDP 12m;mensal;Balanço de pagamentos;barras;saldo_tc_idp_12m;;sim;1
+Reservas Internacionais;US$;13621;Reservas internacionais líquidas;diário;Balanço de pagamentos;linhas;reservas_internacionais;;sim;1
+Dólar comercial;R$;1;Dólar comercial (venda);diário;Balanço de pagamentos;linhas;dolar_comercial;;sim;1
+Fluxo Cambial;US$;13961;Fluxo cambial;diário;Balanço de pagamentos;barras;fluxo_cambial;sim;sim;1
+
+Dívida Líquida do Setor Público;%;4513;Dívida Líquida do Setor Público (% PIB) - Total - Setor público consolidado;mensal;Finanças Públicas;linhas;divida_liquida_setor_publico;;sim;1
+Dívida Bruta do Governo Geral - Bacen;%;13762;Dívida bruta do governo geral (% PIB) - Metodologia utilizada BC;mensal;Finanças Públicas;linhas;divida_bruta_governo_geral_bc;;sim;1
+Dívida Bruta do Governo Geral - FMI;%;4537;Dívida bruta do governo geral (% PIB) - Metodologia FMI;mensal;Finanças Públicas;linhas;divida_bruta_governo_geral_fmi;;sim;1
+
+Produção total de autoveiculos - Anfavea;unidades;1373;;mensal;Mercado Automotivo;barras;producao_total_anfavea;sim;sim;1
+Produção de automóveis e comerciais leves - Anfavea;unidades;1374;;mensal;Mercado Automotivo;barras;producao_leves_anfavea;sim;sim;1
+Produção de caminhões - Anfavea;unidades;1375;;mensal;Mercado Automotivo;barras;producao_caminhoes_anfavea;sim;sim;1
+Produção de onibus - Anfavea;unidades;1376;;mensal;Mercado Automotivo;barras;producao_onibus_anfavea;sim;sim;1
+Vendas de veículos pelas concessionárias - Automóveis;unidades;7384;;mensal;Mercado Automotivo;barras;vandas_automoveis;sim;sim;1
+Vendas de veículos pelas concessionárias - Comerciais leves;unidades;7385;;mensal;Mercado Automotivo;barras;vendas_onibus_comerciais leves;sim;sim;1
+Vendas de veículos pelas concessionárias - Caminhões;unidades;7386;;mensal;Mercado Automotivo;barras;vandas_caminhoes;sim;sim;1
+Vendas de veículos pelas concessionárias - Ônibus;unidades;7387;;mensal;Mercado Automotivo;barras;vandas_onibus;sim;sim;1
+
+Resultado Nominal - Setor Público Consolidado - Fluxo Acumulado no Ano (% PIB);%;5441;NFSP sem desvalorização cambial (% PIB) - Fluxo acumulado no ano - Resultado nominal - Total - Setor público consolidado;mensal;Finanças Públicas;barras;resultado_nominal_spc_acum_ano_pib;;sim;1
+Resultado Primário - Setor Público Consolidado - Fluxo Acumulado no Ano (% PIB);%;5507;NFSP sem desvalorização cambial (% PIB) - Fluxo acumulado no ano - Resultado primário - Total - Setor público consolidado;mensal;Finanças Públicas;barras;resultado_primario_spc_acum_ano_pib;;sim;1
+Resultado Primário - Setor Público Consolidado - Fluxo Acumulado no Ano;R$ (milhões);4792;NFSP sem desvalorização cambial - Fluxo acumulado no ano - Resultado primário - Total - Setor público consolidado;mensal;Finanças Públicas;barras;resultado_primario_spc_acum_ano;;sim;1
