@@ -1,6 +1,6 @@
 streamlit==1.54.0
 pandas==2.3.2
-plotly
+plotly==6.5.2
 altair<5
 requests
 pyarrow
