@@ -451,6 +451,7 @@ with col_principal:
         color="Nome Serie",
         color_discrete_sequence=PALETA_GRAFICOS,
         title=f"Evolução de {coluna_valor}",
+        render_mode="svg",
     )
 
     fig_linha = adicionar_marcacoes_extremos(fig_linha, serie_plot, coluna_valor)
