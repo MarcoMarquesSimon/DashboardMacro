@@ -41,7 +41,7 @@ st.markdown(
 
         .block-container {{
             max-width: 120rem;
-            padding-top: 1.15rem;
+            padding-top: 2.05rem;
             padding-bottom: 2rem;
         }}
 
@@ -50,12 +50,13 @@ st.markdown(
         }}
 
         .macro-top {{
+            margin-top: 0.25rem;
             margin-bottom: 1.25rem;
         }}
 
         .macro-title {{
             font-size: 2.15rem;
-            line-height: 1.05;
+            line-height: 1.12;
             font-weight: 800;
             letter-spacing: -0.03em;
             margin-bottom: 0.35rem;
