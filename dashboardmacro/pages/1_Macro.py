@@ -100,19 +100,23 @@ st.markdown(
         }}
 
         .chart-head {{
-            display: flex;
-            justify-content: space-between;
-            gap: 1rem;
-            align-items: flex-start;
-            margin-bottom: 0.55rem;
+            display: block;
+            margin-bottom: 0.7rem;
+        }}
+
+        .chart-copy {{
+            margin-bottom: 0.45rem;
         }}
 
         .chart-title {{
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 800;
-            line-height: 1.2;
+            line-height: 1.28;
             color: {COR_TEXTO};
             margin: 0 0 0.25rem 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            hyphens: auto;
         }}
 
         .chart-subtitle {{
@@ -120,11 +124,12 @@ st.markdown(
             font-size: 0.88rem;
             line-height: 1.35;
             margin: 0;
+            overflow-wrap: anywhere;
         }}
 
         .metric-wrap {{
-            min-width: 280px;
             text-align: right;
+            width: 100%;
         }}
 
         .metric-label {{
@@ -209,6 +214,25 @@ st.markdown(
             color: {COR_TEXTO};
         }}
 
+        div[data-testid="stMultiSelect"] [data-baseweb="tag"] {{
+            max-width: 220px;
+        }}
+
+        div[data-testid="stMultiSelect"] [data-baseweb="tag"] span {{
+            max-width: 190px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }}
+
+        .selection-note {{
+            color: {COR_TEXTO_SUAVE};
+            font-size: 0.86rem;
+            line-height: 1.45;
+            margin: 0.35rem 0 0.1rem 0;
+            overflow-wrap: anywhere;
+        }}
+
         div[data-testid="stCheckbox"] label {{
             font-weight: 500;
         }}
@@ -291,16 +315,35 @@ def safe_label(meta: pd.Series) -> str:
     return indicador
 
 
-@st.cache_data(show_spinner="Carregando indicadores do Banco Central...")
-def load_macro_catalog_and_data(_version: str, _codes_mtime: float):
+def compact_label(meta: pd.Series, max_chars: int = 42) -> str:
+    label = safe_label(meta)
+    if len(label) <= max_chars:
+        return label
+    return label[: max_chars - 1].rstrip() + "…"
+
+
+@st.cache_data(show_spinner=False)
+def load_macro_catalog(_version: str, _codes_mtime: float):
     catalog = load_indicators_table(CODES_PATH).copy()
 
     for col in catalog.columns:
         if catalog[col].dtype == "object":
             catalog[col] = catalog[col].map(lambda x: fix_mojibake(x) if pd.notna(x) else x)
 
+    return catalog
+
+
+@st.cache_data(show_spinner="Carregando indicadores do Banco Central...")
+def load_macro_subset_data(selected_keys: tuple[str, ...], _version: str, _codes_mtime: float):
+    catalog = load_macro_catalog(_version, _codes_mtime)
+    subset = catalog[catalog["key"].astype(str).isin(selected_keys)].copy()
+
+    if subset.empty:
+        empty = pd.DataFrame(columns=["data", "valor", "key"])
+        return empty, {}
+
     df_long, by_key = fetch_all_indicators(
-        catalog,
+        subset,
         use_disk_cache=True,
         cache_dir=CACHE_DIR,
         ttl_hours=12,
@@ -324,7 +367,7 @@ def load_macro_catalog_and_data(_version: str, _codes_mtime: float):
             tmp = tmp.dropna(subset=["data"]).sort_values("data").reset_index(drop=True)
         cleaned_by_key[str(key)] = tmp
 
-    return catalog, df_long, cleaned_by_key
+    return df_long, cleaned_by_key
 
 
 def prepare_group_catalog(catalog: pd.DataFrame) -> pd.DataFrame:
@@ -550,9 +593,8 @@ def build_indicator_chart(
 
 
 codes_mtime = CODES_PATH.stat().st_mtime if CODES_PATH.exists() else 0.0
-catalog_raw, df_long, by_key = load_macro_catalog_and_data(DATA_PIPELINE_VERSION, codes_mtime)
+catalog_raw = load_macro_catalog(DATA_PIPELINE_VERSION, codes_mtime)
 catalog = prepare_group_catalog(catalog_raw)
-ranges_df = indicator_available_ranges(df_long)
 meta_by_key = catalog.drop_duplicates("key").set_index("key")
 
 
@@ -611,7 +653,7 @@ if not current_selected:
     current_selected = valid_keys_for_group.copy()
 st.session_state["macro_selected_keys"] = current_selected
 
-label_map = {row["key"]: safe_label(row) for _, row in group_catalog.iterrows()}
+label_map = {row["key"]: compact_label(row) for _, row in group_catalog.iterrows()}
 
 with col_ind:
     selected_keys = st.multiselect(
@@ -626,12 +668,20 @@ if not selected_keys:
     selected_keys = valid_keys_for_group.copy()
     st.session_state["macro_selected_keys"] = selected_keys
 
+selected_labels = [label_map.get(key, key) for key in selected_keys]
+if selected_labels:
+    st.markdown(
+        f'<p class="selection-note">{len(selected_labels)} indicador(es) selecionado(s).</p>',
+        unsafe_allow_html=True,
+    )
+
 with col_period:
     period = st.selectbox("Período", PERIOD_OPTIONS, key="macro_period")
 
+selected_keys_tuple = tuple(selected_keys)
+df_long, by_key = load_macro_subset_data(selected_keys_tuple, DATA_PIPELINE_VERSION, codes_mtime)
+ranges_df = indicator_available_ranges(df_long)
 selected_range_rows = ranges_df[ranges_df["key"].isin(selected_keys)].copy()
-if selected_range_rows.empty:
-    selected_range_rows = ranges_df[ranges_df["key"].isin(valid_keys_for_group)].copy()
 
 if selected_range_rows.empty:
     global_min = pd.Timestamp.today().normalize()
@@ -750,7 +800,7 @@ for idx in range(0, len(selected_keys), 2):
             st.markdown(
                 f"""
                 <div class="chart-head">
-                    <div>
+                    <div class="chart-copy">
                         <div class="chart-title">{indicator_name}</div>
                         <p class="chart-subtitle">Disponível de {available_min} a {available_max} · Frequência: {periodicidade}</p>
                     </div>
