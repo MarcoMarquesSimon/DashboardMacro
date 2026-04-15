@@ -215,7 +215,7 @@ def safe_label(meta: pd.Series) -> str:
     return str(meta["indicador"])
 
 
-@st.cache_data(show_spinner="Carregando indicadores do FRED...")
+@st.cache_data(show_spinner=False, persist="disk")
 def load_fred_panel(api_key: str, _version: str):
     df_long, by_key, catalog = fetch_all_fred_indicators(api_key)
     if not df_long.empty:

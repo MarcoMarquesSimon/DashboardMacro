@@ -324,7 +324,7 @@ def compact_label(meta: pd.Series, max_chars: int = 42) -> str:
     return label[: max_chars - 1].rstrip() + "…"
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, persist="disk")
 def load_macro_catalog(_version: str, _codes_mtime: float):
     catalog = load_indicators_table(CODES_PATH).copy()
 
@@ -335,7 +335,7 @@ def load_macro_catalog(_version: str, _codes_mtime: float):
     return catalog
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, persist="disk")
 def load_macro_subset_data(
     selected_keys: tuple[str, ...],
     dt_ini: str | None,

@@ -594,7 +594,7 @@ def fetch_all_indicators(
 
         return seq, key, code, meta, serie
 
-    max_workers = min(8, max(1, len(coded_meta_rows)))
+    max_workers = min(12, max(1, len(coded_meta_rows)))
     fetched_results: list[tuple[int, str, int, pd.Series, pd.DataFrame]] = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_map = {executor.submit(_fetch_one, seq_meta): seq_meta for seq_meta in coded_meta_rows}
