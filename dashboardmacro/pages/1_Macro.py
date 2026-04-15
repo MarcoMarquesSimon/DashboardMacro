@@ -48,7 +48,7 @@ st.markdown(
 
         .block-container {{
             max-width: 120rem;
-            padding-top: 2.05rem;
+            padding-top: 3.05rem;
             padding-bottom: 2rem;
         }}
 
@@ -233,6 +233,7 @@ st.markdown(
             margin: 0.35rem 0 0.1rem 0;
             overflow-wrap: anywhere;
         }}
+
 
         div[data-testid="stCheckbox"] label {{
             font-weight: 500;
@@ -679,21 +680,12 @@ if selected_labels:
 with col_period:
     period = st.selectbox("Período", PERIOD_OPTIONS, key="macro_period")
 
-selected_keys_tuple = tuple(selected_keys)
-df_long, by_key = load_macro_subset_data(selected_keys_tuple, DATA_PIPELINE_VERSION, codes_mtime)
-ranges_df = indicator_available_ranges(df_long)
-selected_range_rows = ranges_df[ranges_df["key"].isin(selected_keys)].copy()
-
-if selected_range_rows.empty:
-    global_min = pd.Timestamp.today().normalize()
-    global_max = pd.Timestamp.today().normalize()
-else:
-    global_min = selected_range_rows["data_min"].min().normalize()
-    global_max = selected_range_rows["data_max"].max().normalize()
+global_min = pd.Timestamp("1960-01-01").normalize()
+global_max = (pd.Timestamp.today().normalize() + pd.DateOffset(years=1)).normalize()
 
 signature = (selected_group, tuple(selected_keys), period)
 if st.session_state.get("macro_period_signature") != signature:
-    preset_ini, preset_fim = preset_dates(period, global_min, global_max)
+    preset_ini, preset_fim = preset_dates(period, pd.Timestamp("2000-01-01").normalize(), pd.Timestamp.today().normalize())
     st.session_state["macro_dt_ini_input"] = preset_ini.date()
     st.session_state["macro_dt_fim_input"] = preset_fim.date()
     st.session_state["macro_period_signature"] = signature
@@ -740,14 +732,27 @@ if dt_ini.date() != st.session_state["macro_dt_ini_input"] or dt_fim.date() != s
     st.session_state["macro_dt_fim_input"] = dt_fim.date()
     st.rerun()
 
+df_long, by_key = load_macro_subset_data(tuple(selected_keys), DATA_PIPELINE_VERSION, codes_mtime)
+ranges_df = indicator_available_ranges(df_long)
+selected_range_rows = ranges_df[ranges_df["key"].isin(selected_keys)].copy()
+
+if selected_range_rows.empty:
+    available_min = dt_ini.normalize()
+    available_max = dt_fim.normalize()
+else:
+    available_min = selected_range_rows["data_min"].min().normalize()
+    available_max = selected_range_rows["data_max"].max().normalize()
+
+dt_ini, dt_fim = clamp_date_range(dt_ini, dt_fim, available_min, available_max)
+
 st.markdown(
-    f'<p class="range-note">Dados disponíveis para a seleção atual: {format_br_date(global_min)} a {format_br_date(global_max)}.</p>',
+    f'<p class="range-note">Dados disponíveis para a seleção atual: {format_br_date(available_min)} a {format_br_date(available_max)}.</p>',
     unsafe_allow_html=True,
 )
 
 
 table_frames: list[pd.DataFrame] = []
-selected_meta = group_catalog[group_catalog["key"].isin(selected_keys)].copy()
+selected_meta = catalog[catalog["key"].isin(selected_keys)].copy()
 selected_meta = selected_meta.set_index("key").loc[selected_keys].reset_index()
 
 for idx in range(0, len(selected_keys), 2):

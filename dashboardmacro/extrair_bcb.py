@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import unicodedata
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, Tuple
 from urllib.parse import quote
@@ -540,7 +541,10 @@ def fetch_all_indicators(
     coded_rows = indicators_df[indicators_df["codigo"].notna()].copy()
     derived_rows = indicators_df[indicators_df["codigo"].isna()].copy()
 
-    for _, meta in coded_rows.iterrows():
+    coded_meta_rows = [(seq, meta) for seq, (_, meta) in enumerate(coded_rows.iterrows())]
+
+    def _fetch_one(seq_meta: tuple[int, pd.Series]) -> tuple[int, str, int, pd.Series, pd.DataFrame]:
+        seq, meta = seq_meta
         code = int(meta["codigo"])
         key = str(meta.get("key", code))
 
@@ -558,6 +562,18 @@ def fetch_all_indicators(
             serie = pd.DataFrame(columns=["data", "valor"])
             serie.attrs["message"] = f"Falha ao carregar a serie {code}: {exc}"
 
+        return seq, key, code, meta, serie
+
+    max_workers = min(8, max(1, len(coded_meta_rows)))
+    fetched_results: list[tuple[int, str, int, pd.Series, pd.DataFrame]] = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_map = {executor.submit(_fetch_one, seq_meta): seq_meta for seq_meta in coded_meta_rows}
+        for future in as_completed(future_map):
+            fetched_results.append(future.result())
+
+    fetched_results.sort(key=lambda item: item[0])
+
+    for _, key, code, meta, serie in fetched_results:
         by_key[key] = serie.copy()
 
         if serie.empty:
