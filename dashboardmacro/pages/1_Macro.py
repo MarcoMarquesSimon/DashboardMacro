@@ -816,7 +816,7 @@ with col_end:
         format="YYYY/MM/DD",
     )
 
-row_a, row_gap, row_b, row_c = st.columns([0.95, 1.35, 1.45, 0.55], gap="medium")
+row_a, row_gap, row_b, row_c = st.columns([0.9, 2.1, 1.0, 0.5], gap="medium")
 with row_a:
     compare_base100 = st.checkbox("Comparar (base 100)", key="macro_compare_base100")
 with row_gap:
