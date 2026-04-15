@@ -246,6 +246,14 @@ st.markdown(
             margin-top: 1.55rem;
         }}
 
+        .filter-row-bottom {{
+            padding-top: 0.15rem;
+        }}
+
+        .range-radio-wrap {{
+            padding-top: 0.1rem;
+        }}
+
         div[data-testid="stPopover"] > button {{
             width: 100%;
             justify-content: space-between;
@@ -801,7 +809,7 @@ else:
     full_df_long, full_by_key = pd.DataFrame(columns=["data", "valor", "key"]), {}
 
 
-col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 2.4, 0.95, 0.9, 0.9], gap="medium")
+col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 1.15, 0.95, 0.9, 0.9], gap="medium")
 
 with col_group:
     st.markdown('<div class="filter-label">Grupo</div>', unsafe_allow_html=True)
@@ -861,7 +869,18 @@ if st.session_state.get("macro_period_signature") != signature:
     preset_ini, preset_fim = preset_dates(period, global_min, global_max)
     st.session_state["macro_dt_ini_value"] = preset_ini.date()
     st.session_state["macro_dt_fim_value"] = preset_fim.date()
+    st.session_state["macro_dt_ini_input"] = preset_ini.date()
+    st.session_state["macro_dt_fim_input"] = preset_fim.date()
     st.session_state["macro_period_signature"] = signature
+
+st.session_state["macro_dt_ini_input"] = st.session_state.get(
+    "macro_dt_ini_input",
+    st.session_state["macro_dt_ini_value"],
+)
+st.session_state["macro_dt_fim_input"] = st.session_state.get(
+    "macro_dt_fim_input",
+    st.session_state["macro_dt_fim_value"],
+)
 
 with col_start:
     st.markdown('<div class="filter-label">In&iacute;cio</div>', unsafe_allow_html=True)
@@ -887,17 +906,18 @@ with col_end:
         label_visibility="collapsed",
     )
 
-row_a, row_b, row_c, row_d, row_e = st.columns([1.05, 2.4, 0.95, 0.9, 0.9], gap="medium")
+row_a, row_b, row_c, row_d, row_e = st.columns([1.05, 1.15, 0.95, 0.9, 0.9], gap="medium")
 with row_a:
-    st.markdown('<div class="filter-action"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="filter-action filter-row-bottom"></div>', unsafe_allow_html=True)
     compare_base100 = st.checkbox("Comparar (base 100)", key="macro_compare_base100")
 with row_b:
-    st.markdown("&nbsp;", unsafe_allow_html=True)
+    st.markdown("", unsafe_allow_html=True)
 with row_c:
-    st.markdown("&nbsp;", unsafe_allow_html=True)
+    st.markdown("", unsafe_allow_html=True)
 with row_d:
-    st.markdown("&nbsp;", unsafe_allow_html=True)
+    st.markdown("", unsafe_allow_html=True)
 with row_e:
+    st.markdown('<div class="range-radio-wrap"></div>', unsafe_allow_html=True)
     range_behavior = st.radio(
         "Sem dados no intervalo",
         RANGE_BEHAVIOR_OPTIONS,
