@@ -528,12 +528,32 @@ def _build_derived_series(meta: pd.Series, by_key: Dict[str, pd.DataFrame]) -> p
     return _empty_series_with_meta(meta, "Serie sem codigo SGS e sem regra de derivacao configurada.")
 
 
+def _buffered_start_date(start: Any, periodicidade: Any) -> Any:
+    if start in (None, ""):
+        return None
+
+    start_ts = pd.to_datetime(start, errors="coerce")
+    if pd.isna(start_ts):
+        return None
+
+    periodicidade_norm = str(periodicidade or "").strip().lower()
+    if periodicidade_norm == "anual":
+        return start_ts - pd.DateOffset(years=10)
+    if periodicidade_norm in {"mensal", "trimestral"}:
+        return start_ts - pd.DateOffset(years=5)
+    if periodicidade_norm == "diário" or periodicidade_norm == "diario":
+        return start_ts - pd.DateOffset(years=2)
+    return start_ts - pd.DateOffset(years=3)
+
+
 def fetch_all_indicators(
     indicators_df: pd.DataFrame,
     use_disk_cache: bool = True,
     cache_dir: str | Path = ".cache_sgs",
     ttl_hours: int = 12,
     timeout: int = 30,
+    inicio: Any = None,
+    fim: Any = None,
 ) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
     rows = []
     by_key: Dict[str, pd.DataFrame] = {}
@@ -547,17 +567,26 @@ def fetch_all_indicators(
         seq, meta = seq_meta
         code = int(meta["codigo"])
         key = str(meta.get("key", code))
+        periodicidade = meta.get("periodicidade")
+        buffered_inicio = _buffered_start_date(inicio, periodicidade)
 
         try:
             if use_disk_cache:
-                serie = fetch_sgs_series_cached(
+                serie = extrair_bcb(
                     code,
                     cache_dir=cache_dir,
                     ttl_hours=ttl_hours,
                     timeout=timeout,
+                    inicio=buffered_inicio,
+                    fim=fim,
                 )
             else:
-                serie = fetch_sgs_series(code, timeout=timeout)
+                serie = extrair_bcb(
+                    code,
+                    timeout=timeout,
+                    inicio=buffered_inicio,
+                    fim=fim,
+                )
         except Exception as exc:
             serie = pd.DataFrame(columns=["data", "valor"])
             serie.attrs["message"] = f"Falha ao carregar a serie {code}: {exc}"

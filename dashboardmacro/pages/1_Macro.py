@@ -335,8 +335,14 @@ def load_macro_catalog(_version: str, _codes_mtime: float):
     return catalog
 
 
-@st.cache_data(show_spinner="Carregando indicadores do Banco Central...")
-def load_macro_subset_data(selected_keys: tuple[str, ...], _version: str, _codes_mtime: float):
+@st.cache_data(show_spinner=False)
+def load_macro_subset_data(
+    selected_keys: tuple[str, ...],
+    dt_ini: str | None,
+    dt_fim: str | None,
+    _version: str,
+    _codes_mtime: float,
+):
     catalog = load_macro_catalog(_version, _codes_mtime)
     subset = catalog[catalog["key"].astype(str).isin(selected_keys)].copy()
 
@@ -350,6 +356,8 @@ def load_macro_subset_data(selected_keys: tuple[str, ...], _version: str, _codes
         cache_dir=CACHE_DIR,
         ttl_hours=12,
         timeout=30,
+        inicio=dt_ini,
+        fim=dt_fim,
     )
 
     if not df_long.empty:
@@ -531,12 +539,22 @@ def _line_segments(df_plot: pd.DataFrame) -> Iterable[tuple[pd.DataFrame, str]]:
     return segments
 
 
+def simplify_display_series(serie: pd.DataFrame, max_points: int = 320) -> pd.DataFrame:
+    if serie.empty or len(serie) <= max_points:
+        return serie
+    step = max(1, len(serie) // max_points)
+    simplified = serie.iloc[::step].copy()
+    if simplified.iloc[-1]["data"] != serie.iloc[-1]["data"]:
+        simplified = pd.concat([simplified, serie.tail(1)], ignore_index=True)
+    return simplified.drop_duplicates(subset=["data"]).reset_index(drop=True)
+
+
 def build_indicator_chart(
     serie: pd.DataFrame,
     chart_type: str,
     unit_label: str,
 ) -> go.Figure:
-    df_plot = serie.dropna(subset=["data", "valor"]).copy()
+    df_plot = simplify_display_series(serie.dropna(subset=["data", "valor"]).copy())
     fig = go.Figure()
 
     if normalize_text_key(chart_type) == "barras":
@@ -552,14 +570,16 @@ def build_indicator_chart(
         segments = list(_line_segments(df_plot))
         if not segments and not df_plot.empty:
             segments = [(df_plot, COR_POSITIVA)]
+        line_mode = "lines" if len(df_plot) > 120 else "lines+markers"
+        marker_size = 0 if line_mode == "lines" else 5
         for chunk, color in segments:
             fig.add_trace(
                 go.Scatter(
                     x=chunk["data"],
                     y=chunk["valor"],
-                    mode="lines+markers",
+                    mode=line_mode,
                     line=dict(color=color, width=2.8),
-                    marker=dict(size=5, color=color),
+                    marker=dict(size=marker_size, color=color),
                     hovertemplate="%{x|%d/%m/%Y}<br>%{y:,.2f}<extra></extra>",
                     showlegend=False,
                 )
@@ -731,7 +751,13 @@ if dt_ini.date() != st.session_state["macro_dt_ini_input"] or dt_fim.date() != s
     st.session_state["macro_dt_fim_input"] = dt_fim.date()
     st.rerun()
 
-df_long, by_key = load_macro_subset_data(tuple(selected_keys), DATA_PIPELINE_VERSION, codes_mtime)
+df_long, by_key = load_macro_subset_data(
+    tuple(selected_keys),
+    dt_ini.strftime("%Y-%m-%d"),
+    dt_fim.strftime("%Y-%m-%d"),
+    DATA_PIPELINE_VERSION,
+    codes_mtime,
+)
 ranges_df = indicator_available_ranges(df_long)
 selected_range_rows = ranges_df[ranges_df["key"].isin(selected_keys)].copy()
 
