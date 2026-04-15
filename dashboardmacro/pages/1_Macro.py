@@ -366,30 +366,9 @@ def compact_label(meta: pd.Series, max_chars: int = 42) -> str:
     return label[: max_chars - 1].rstrip() + "…"
 
 
-def selection_preview(selected_keys: list[str], label_map: dict[str, str], empty_text: str = "Nenhum indicador selecionado") -> str:
-    if not selected_keys:
-        return empty_text
-    names = [label_map.get(key, key) for key in selected_keys[:2]]
-    preview = " | ".join(names)
-    if len(selected_keys) > 2:
-        preview += f" | +{len(selected_keys) - 2} mais"
-    return preview
-
-
 def render_indicator_picker(prefix: str, valid_keys: list[str], label_map: dict[str, str]) -> list[str]:
     selected_state_key = f"{prefix}_selected_keys"
     search_state_key = f"{prefix}_indicator_search"
-    selected_keys = [key for key in st.session_state.get(selected_state_key, []) if key in valid_keys]
-
-    st.markdown(
-        f"""
-        <div class="indicator-picker-box">
-            <div class="indicator-picker-summary">{len(selected_keys)} indicador(es) selecionado(s)</div>
-            <div class="indicator-picker-sub">{selection_preview(selected_keys, label_map)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
     with st.popover("Escolher indicadores"):
         search_term = st.text_input(
