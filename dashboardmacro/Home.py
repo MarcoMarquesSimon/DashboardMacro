@@ -348,7 +348,7 @@ with col_f1:
     titulos_selecionados = st.multiselect(
         "Títulos",
         options=tipos_disponiveis,
-        default=tipos_disponiveis[:2] if len(tipos_disponiveis) >= 2 else tipos_disponiveis,
+        default=[],
         placeholder="Selecione os títulos",
     )
 
@@ -386,7 +386,7 @@ if data_inicio > data_fim:
     st.stop()
 
 if not titulos_selecionados:
-    st.warning("Selecione ao menos um título.")
+    st.info("Selecione ao menos um título para visualizar os dados.")
     st.stop()
 
 df_filtrado = df[
