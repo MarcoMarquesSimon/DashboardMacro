@@ -253,14 +253,22 @@ st.markdown(
             padding-top: 0.1rem;
         }}
 
-        div[data-testid="stPopover"] > button {{
+        div[data-testid="stPopover"] {{
+            display: block !important;
             width: 100% !important;
-            min-width: 0 !important;
-            justify-content: space-between;
         }}
 
-        div[data-testid="stPopover"] {{
-            width: 100%;
+        div[data-testid="stPopover"] > div {{
+            display: block !important;
+            width: 100% !important;
+        }}
+
+        div[data-testid="stPopover"] button {{
+            width: 100% !important;
+            min-width: 0 !important;
+            min-height: 2.85rem !important;
+            border-radius: 15px !important;
+            justify-content: space-between;
         }}
 
         div[data-testid="stSelectbox"],
