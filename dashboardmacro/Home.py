@@ -401,7 +401,7 @@ if df_filtrado.empty:
 
 hoje = pd.Timestamp.today().normalize()
 
-with st.expander("Refinar vencimentos", expanded=False):
+with st.expander("Refinar vencimentos", expanded=True):
     incluir_vencidos = st.checkbox("Incluir títulos com vencimento passado", value=False)
 
     vencimentos_ativos = sorted(
