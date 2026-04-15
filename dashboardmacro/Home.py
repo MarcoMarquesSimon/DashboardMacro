@@ -132,6 +132,20 @@ st.markdown(
             border-radius: 14px;
         }}
 
+        div[data-testid="stMultiSelect"] [data-baseweb="tag"] {{
+            background: {COR_PRIMARIA} !important;
+            color: #FFFFFF !important;
+            border: none !important;
+        }}
+
+        div[data-testid="stMultiSelect"] [data-baseweb="tag"] span {{
+            color: #FFFFFF !important;
+        }}
+
+        div[data-testid="stMultiSelect"] [data-baseweb="tag"] svg {{
+            fill: #FFFFFF !important;
+        }}
+
         h1, h2, h3, p, label, span {{
             color: {COR_TEXTO};
         }}

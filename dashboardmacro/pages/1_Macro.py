@@ -218,6 +218,9 @@ st.markdown(
 
         div[data-testid="stMultiSelect"] [data-baseweb="tag"] {{
             max-width: 220px;
+            background: {COR_PRIMARIA} !important;
+            color: #FFFFFF !important;
+            border: none !important;
         }}
 
         div[data-testid="stMultiSelect"] [data-baseweb="tag"] span {{
@@ -225,6 +228,11 @@ st.markdown(
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
+            color: #FFFFFF !important;
+        }}
+
+        div[data-testid="stMultiSelect"] [data-baseweb="tag"] svg {{
+            fill: #FFFFFF !important;
         }}
 
         .selection-note {{

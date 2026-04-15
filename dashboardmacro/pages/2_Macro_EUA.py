@@ -180,6 +180,20 @@ st.markdown(
             color: {COR_TEXTO};
         }}
 
+        div[data-testid="stMultiSelect"] [data-baseweb="tag"] {{
+            background: {COR_PRIMARIA} !important;
+            color: #FFFFFF !important;
+            border: none !important;
+        }}
+
+        div[data-testid="stMultiSelect"] [data-baseweb="tag"] span {{
+            color: #FFFFFF !important;
+        }}
+
+        div[data-testid="stMultiSelect"] [data-baseweb="tag"] svg {{
+            fill: #FFFFFF !important;
+        }}
+
         div[data-testid="stCheckbox"] label {{
             font-weight: 500;
         }}

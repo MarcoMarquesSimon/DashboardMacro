@@ -1,0 +1,40 @@
+name: Update Snapshots
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-snapshots:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r dashboardmacro/requirements.txt
+
+      - name: Generate snapshots
+        run: python dashboardmacro/update_snapshots.py
+
+      - name: Commit updated snapshots
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dashboardmacro/data/macro_brasil_snapshot.pkl dashboardmacro/data/macro_eua_snapshot.pkl dashboardmacro/data/tesouro_direto_snapshot.pkl dashboardmacro/data/snapshot_metadata.json
+          git diff --cached --quiet || git commit -m "Update data snapshots"
+
+      - name: Push changes
+        run: git push
