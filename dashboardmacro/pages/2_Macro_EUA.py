@@ -191,8 +191,23 @@ st.markdown(
         }}
 
         div[data-testid="stPopover"] > button {{
-            width: 100%;
+            width: 100% !important;
+            min-width: 0 !important;
             justify-content: space-between;
+        }}
+
+        div[data-testid="stPopover"] {{
+            width: 100%;
+        }}
+
+        div[data-testid="stSelectbox"],
+        div[data-testid="stDateInput"] {{
+            width: 100%;
+        }}
+
+        div[data-testid="stDateInput"] > div,
+        div[data-testid="stSelectbox"] > div {{
+            width: 100%;
         }}
 
         .indicator-picker-box {{
@@ -589,7 +604,7 @@ if "fred_dt_ini_value" not in st.session_state:
 if "fred_dt_fim_value" not in st.session_state:
     st.session_state["fred_dt_fim_value"] = pd.Timestamp.today().normalize().date()
 
-col_group, col_ind, col_period, col_start, col_end = st.columns(5, gap="medium")
+col_group, col_ind, col_period, col_start, col_end = st.columns([1, 1, 1, 1, 1], gap="small")
 
 with col_group:
     st.markdown('<div class="filter-label">Grupo</div>', unsafe_allow_html=True)
