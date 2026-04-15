@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Iterable
 
 import numpy as np
@@ -24,7 +26,10 @@ COR_NEGATIVA = "#E04F5F"
 COR_INFO = "#EAF2FF"
 COR_INFO_BORDA = "#C9DAF8"
 CASAS = 2
-DATA_PIPELINE_VERSION = "2026-03-26-v1"
+BASE_DIR = Path(__file__).resolve().parents[1]
+SNAPSHOT_US_PATH = BASE_DIR / "data" / "macro_eua_snapshot.pkl"
+SNAPSHOT_META_PATH = BASE_DIR / "data" / "snapshot_metadata.json"
+DATA_PIPELINE_VERSION = "2026-04-15-v1"
 DEFAULT_FRED_API_KEY = "da9de0f64ae8f49db8bfc2b01d51c163"
 
 PERIOD_OPTIONS = ["6M", "1Y", "3Y", "5Y", "10Y", "YTD", "Tudo"]
@@ -234,6 +239,39 @@ def load_fred_panel(api_key: str, _version: str):
     return catalog, df_long, cleaned_by_key
 
 
+@st.cache_data(show_spinner=False, persist="disk")
+def load_fred_snapshot_panel(_version: str, _snapshot_mtime: float):
+    if not SNAPSHOT_US_PATH.exists():
+        empty = pd.DataFrame(columns=["data", "valor", "key"])
+        return pd.DataFrame(), empty, {}
+
+    df_long = pd.read_pickle(SNAPSHOT_US_PATH).copy()
+    if df_long.empty:
+        return pd.DataFrame(), df_long, {}
+
+    df_long["data"] = pd.to_datetime(df_long["data"], errors="coerce")
+    df_long["valor"] = pd.to_numeric(df_long["valor"], errors="coerce")
+    df_long = df_long.dropna(subset=["data"]).sort_values(["key", "data"]).reset_index(drop=True)
+
+    catalog_cols = [col for col in df_long.columns if col not in {"data", "valor"}]
+    catalog = df_long[catalog_cols].drop_duplicates("key").reset_index(drop=True)
+
+    by_key = {}
+    for key, serie in df_long.groupby("key", sort=False):
+        by_key[str(key)] = serie[["data", "valor"]].copy().reset_index(drop=True)
+
+    return catalog, df_long, by_key
+
+
+def load_snapshot_metadata() -> dict:
+    if not SNAPSHOT_META_PATH.exists():
+        return {}
+    try:
+        return json.loads(SNAPSHOT_META_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
 def indicator_available_ranges(df_long: pd.DataFrame) -> pd.DataFrame:
     if df_long.empty:
         return pd.DataFrame(columns=["key", "data_min", "data_max"])
@@ -408,8 +446,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+snapshot_mtime = SNAPSHOT_US_PATH.stat().st_mtime if SNAPSHOT_US_PATH.exists() else 0.0
+snapshot_meta = load_snapshot_metadata()
+
 try:
-    catalog, df_long, by_key = load_fred_panel(DEFAULT_FRED_API_KEY, DATA_PIPELINE_VERSION)
+    if SNAPSHOT_US_PATH.exists():
+        catalog, df_long, by_key = load_fred_snapshot_panel(DATA_PIPELINE_VERSION, snapshot_mtime)
+    else:
+        catalog, df_long, by_key = load_fred_panel(DEFAULT_FRED_API_KEY, DATA_PIPELINE_VERSION)
 except Exception as exc:
     st.error(f"Não foi possível carregar os dados do FRED agora. Detalhe: {exc}")
     st.stop()
@@ -510,6 +554,9 @@ st.markdown(
     f'<p class="range-note">Dados disponíveis para a seleção atual: {format_br_date(global_min)} a {format_br_date(global_max)}.</p>',
     unsafe_allow_html=True,
 )
+if SNAPSHOT_US_PATH.exists() and snapshot_meta.get("macro_eua", {}).get("updated_at"):
+    snapshot_updated = snapshot_meta["macro_eua"]["updated_at"]
+    st.caption(f"Snapshot local ativo. Última atualização: {snapshot_updated}.")
 
 table_frames: list[pd.DataFrame] = []
 for idx in range(0, len(selected_keys), 2):

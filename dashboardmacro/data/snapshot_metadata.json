@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-04-15 14:58:34",
+  "macro_brasil": {
+    "updated_at": "2026-04-15 14:58:29",
+    "rows": 50695,
+    "indicators": 47,
+    "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\macro_brasil_snapshot.pkl"
+  },
+  "macro_eua": {
+    "updated_at": "2026-04-15 14:58:34",
+    "rows": 55217,
+    "indicators": 17,
+    "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\macro_eua_snapshot.pkl"
+  }
+}

@@ -30,8 +30,9 @@ CASAS = 2
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 CODES_PATH = BASE_DIR / "data" / "codes.csv"
+SNAPSHOT_BR_PATH = BASE_DIR / "data" / "macro_brasil_snapshot.pkl"
 CACHE_DIR = BASE_DIR / ".cache_sgs"
-DATA_PIPELINE_VERSION = "2026-03-17-v8"
+DATA_PIPELINE_VERSION = "2026-04-15-v1"
 
 PERIOD_OPTIONS = ["6M", "1Y", "3Y", "5Y", "10Y", "YTD", "Tudo"]
 RANGE_BEHAVIOR_OPTIONS = ["Mais próximo disponível", "Intervalo exato"]
@@ -336,7 +337,7 @@ def load_macro_catalog(_version: str, _codes_mtime: float):
 
 
 @st.cache_data(show_spinner=False, persist="disk")
-def load_macro_subset_data(
+def load_macro_live_subset_data(
     selected_keys: tuple[str, ...],
     dt_ini: str | None,
     dt_fim: str | None,
@@ -378,6 +379,63 @@ def load_macro_subset_data(
         cleaned_by_key[str(key)] = tmp
 
     return df_long, cleaned_by_key
+
+
+@st.cache_data(show_spinner=False, persist="disk")
+def load_macro_snapshot_panel(_version: str, _snapshot_mtime: float):
+    if not SNAPSHOT_BR_PATH.exists():
+        empty = pd.DataFrame(columns=["data", "valor", "key"])
+        return empty, {}
+
+    df_long = pd.read_pickle(SNAPSHOT_BR_PATH).copy()
+    if df_long.empty:
+        return df_long, {}
+
+    for col in df_long.columns:
+        if df_long[col].dtype == "object":
+            df_long[col] = df_long[col].map(lambda x: fix_mojibake(x) if pd.notna(x) else x)
+
+    df_long["data"] = pd.to_datetime(df_long["data"], errors="coerce")
+    df_long["valor"] = pd.to_numeric(df_long["valor"], errors="coerce")
+    df_long = df_long.dropna(subset=["data"]).sort_values(["key", "data"]).reset_index(drop=True)
+
+    by_key = {}
+    for key, serie in df_long.groupby("key", sort=False):
+        by_key[str(key)] = serie[["data", "valor"]].copy().reset_index(drop=True)
+
+    return df_long, by_key
+
+
+def filter_long_frame_by_date(
+    df_long: pd.DataFrame,
+    selected_keys: Iterable[str],
+    dt_ini: pd.Timestamp | None,
+    dt_fim: pd.Timestamp | None,
+) -> pd.DataFrame:
+    if df_long.empty:
+        return df_long.copy()
+
+    out = df_long[df_long["key"].astype(str).isin(list(selected_keys))].copy()
+    if dt_ini is not None:
+        out = out[out["data"] >= pd.to_datetime(dt_ini)]
+    if dt_fim is not None:
+        out = out[out["data"] <= pd.to_datetime(dt_fim)]
+    return out.sort_values(["key", "data"]).reset_index(drop=True)
+
+
+def build_available_frame(by_key: dict[str, pd.DataFrame], selected_keys: Iterable[str]) -> pd.DataFrame:
+    frames: list[pd.DataFrame] = []
+    for key in selected_keys:
+        serie = by_key.get(str(key), pd.DataFrame(columns=["data", "valor"])).copy()
+        if serie.empty:
+            continue
+        tmp = serie[["data", "valor"]].copy()
+        tmp["key"] = str(key)
+        frames.append(tmp)
+
+    if not frames:
+        return pd.DataFrame(columns=["data", "valor", "key"])
+    return pd.concat(frames, ignore_index=True)
 
 
 def prepare_group_catalog(catalog: pd.DataFrame) -> pd.DataFrame:
@@ -619,6 +677,7 @@ def build_indicator_chart(
 
 
 codes_mtime = CODES_PATH.stat().st_mtime if CODES_PATH.exists() else 0.0
+snapshot_mtime = SNAPSHOT_BR_PATH.stat().st_mtime if SNAPSHOT_BR_PATH.exists() else 0.0
 catalog_raw = load_macro_catalog(DATA_PIPELINE_VERSION, codes_mtime)
 catalog = prepare_group_catalog(catalog_raw)
 meta_by_key = catalog.drop_duplicates("key").set_index("key")
@@ -765,14 +824,26 @@ if dt_ini.date() != st.session_state["macro_dt_ini_value"] or dt_fim.date() != s
     st.session_state["macro_dt_fim_value"] = dt_fim.date()
     st.rerun()
 
-df_long, by_key = load_macro_subset_data(
-    tuple(selected_keys),
-    dt_ini.strftime("%Y-%m-%d"),
-    dt_fim.strftime("%Y-%m-%d"),
-    DATA_PIPELINE_VERSION,
-    codes_mtime,
-)
-ranges_df = indicator_available_ranges(df_long)
+snapshot_active = SNAPSHOT_BR_PATH.exists()
+if snapshot_active:
+    full_df_long, full_by_key = load_macro_snapshot_panel(DATA_PIPELINE_VERSION, snapshot_mtime)
+    by_key = {
+        str(key): full_by_key.get(str(key), pd.DataFrame(columns=["data", "valor"])).copy()
+        for key in selected_keys
+    }
+    available_df = build_available_frame(full_by_key, selected_keys)
+    df_long = filter_long_frame_by_date(full_df_long, selected_keys, dt_ini, dt_fim)
+else:
+    df_long, by_key = load_macro_live_subset_data(
+        tuple(selected_keys),
+        dt_ini.strftime("%Y-%m-%d"),
+        dt_fim.strftime("%Y-%m-%d"),
+        DATA_PIPELINE_VERSION,
+        codes_mtime,
+    )
+    available_df = build_available_frame(by_key, selected_keys)
+
+ranges_df = indicator_available_ranges(available_df)
 selected_range_rows = ranges_df[ranges_df["key"].isin(selected_keys)].copy()
 
 if selected_range_rows.empty:
