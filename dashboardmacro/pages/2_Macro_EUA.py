@@ -207,7 +207,7 @@ st.markdown(
         }}
 
         div[data-testid="stRadio"] [role="radiogroup"] {{
-            justify-content: flex-end;
+            justify-content: flex-start;
         }}
 
         div[data-testid="stDataFrame"] {{
@@ -568,9 +568,11 @@ with col_end:
         format="YYYY/MM/DD",
     )
 
-row_a, row_b, row_c = st.columns([1.0, 2.05, 0.7], gap="medium")
+row_a, row_gap, row_b, row_c = st.columns([0.95, 1.35, 1.45, 0.55], gap="medium")
 with row_a:
     compare_base100 = st.checkbox("Comparar (base 100)", key="fred_compare_base100")
+with row_gap:
+    st.markdown("&nbsp;", unsafe_allow_html=True)
 with row_b:
     range_behavior = st.radio(
         "Sem dados no intervalo",
