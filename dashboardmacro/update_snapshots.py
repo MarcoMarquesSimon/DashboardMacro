@@ -9,6 +9,7 @@ import pandas as pd
 
 from dados_fred import fetch_all_fred_indicators
 from extrair_bcb import fetch_all_indicators, load_indicators_table
+from src.dados_tesouro import dados_tesouro
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -17,8 +18,15 @@ CODES_PATH = DATA_DIR / "codes.csv"
 CACHE_DIR = BASE_DIR / ".cache_sgs"
 BR_SNAPSHOT_PATH = DATA_DIR / "macro_brasil_snapshot.pkl"
 US_SNAPSHOT_PATH = DATA_DIR / "macro_eua_snapshot.pkl"
+TESOURO_SNAPSHOT_PATH = DATA_DIR / "tesouro_direto_snapshot.pkl"
 META_PATH = DATA_DIR / "snapshot_metadata.json"
 FRED_API_KEY = "da9de0f64ae8f49db8bfc2b01d51c163"
+TESOURO_URL = (
+    "https://www.tesourotransparente.gov.br/ckan/dataset/"
+    "df56aa42-484a-4a59-8184-7676580c81e3/resource/"
+    "796d2059-14e9-44e3-80c9-2d9e30b405c1/download/"
+    "precotaxatesourodireto.csv"
+)
 
 
 def iso_now() -> str:
@@ -77,6 +85,19 @@ def update_macro_eua() -> dict:
     }
 
 
+def update_tesouro_direto() -> dict:
+    df = dados_tesouro(TESOURO_URL)
+    df = df.sort_values(["Tipo Titulo", "Data Vencimento", "Data Base"]).reset_index(drop=True)
+    TESOURO_SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    df.to_pickle(TESOURO_SNAPSHOT_PATH)
+    return {
+        "updated_at": iso_now(),
+        "rows": int(len(df)),
+        "titles": int(df["Tipo Titulo"].nunique()) if "Tipo Titulo" in df.columns and not df.empty else 0,
+        "path": str(TESOURO_SNAPSHOT_PATH),
+    }
+
+
 def main() -> None:
     print("Atualizando snapshot Macro Brasil...")
     br_meta = update_macro_brasil()
@@ -86,11 +107,16 @@ def main() -> None:
     us_meta = update_macro_eua()
     print(f"Macro EUA OK: {us_meta['rows']} linhas, {us_meta['indicators']} indicadores.")
 
+    print("Atualizando snapshot Renda Fixa...")
+    tesouro_meta = update_tesouro_direto()
+    print(f"Renda Fixa OK: {tesouro_meta['rows']} linhas, {tesouro_meta['titles']} tipos de título.")
+
     write_metadata(
         {
             "generated_at": iso_now(),
             "macro_brasil": br_meta,
             "macro_eua": us_meta,
+            "tesouro_direto": tesouro_meta,
         }
     )
     print(f"Metadados salvos em {META_PATH}")

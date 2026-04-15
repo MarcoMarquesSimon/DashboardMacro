@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Iterable
 
@@ -28,7 +27,6 @@ COR_INFO_BORDA = "#C9DAF8"
 CASAS = 2
 BASE_DIR = Path(__file__).resolve().parents[1]
 SNAPSHOT_US_PATH = BASE_DIR / "data" / "macro_eua_snapshot.pkl"
-SNAPSHOT_META_PATH = BASE_DIR / "data" / "snapshot_metadata.json"
 DATA_PIPELINE_VERSION = "2026-04-15-v1"
 DEFAULT_FRED_API_KEY = "da9de0f64ae8f49db8bfc2b01d51c163"
 
@@ -263,15 +261,6 @@ def load_fred_snapshot_panel(_version: str, _snapshot_mtime: float):
     return catalog, df_long, by_key
 
 
-def load_snapshot_metadata() -> dict:
-    if not SNAPSHOT_META_PATH.exists():
-        return {}
-    try:
-        return json.loads(SNAPSHOT_META_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
 def indicator_available_ranges(df_long: pd.DataFrame) -> pd.DataFrame:
     if df_long.empty:
         return pd.DataFrame(columns=["key", "data_min", "data_max"])
@@ -447,7 +436,6 @@ st.markdown(
 )
 
 snapshot_mtime = SNAPSHOT_US_PATH.stat().st_mtime if SNAPSHOT_US_PATH.exists() else 0.0
-snapshot_meta = load_snapshot_metadata()
 
 try:
     if SNAPSHOT_US_PATH.exists():
@@ -479,6 +467,10 @@ if "fred_compare_base100" not in st.session_state:
     st.session_state["fred_compare_base100"] = False
 if "fred_show_table" not in st.session_state:
     st.session_state["fred_show_table"] = False
+if "fred_dt_ini_value" not in st.session_state:
+    st.session_state["fred_dt_ini_value"] = pd.Timestamp("2000-01-01").date()
+if "fred_dt_fim_value" not in st.session_state:
+    st.session_state["fred_dt_fim_value"] = pd.Timestamp.today().normalize().date()
 
 col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 2.2, 0.95, 0.9, 0.9], gap="medium")
 
@@ -526,15 +518,29 @@ else:
 signature = (selected_group, tuple(selected_keys), period)
 if st.session_state.get("fred_period_signature") != signature:
     preset_ini, preset_fim = preset_dates(period, global_min, global_max)
-    st.session_state["fred_dt_ini_input"] = preset_ini.date()
-    st.session_state["fred_dt_fim_input"] = preset_fim.date()
+    st.session_state["fred_dt_ini_value"] = preset_ini.date()
+    st.session_state["fred_dt_fim_value"] = preset_fim.date()
     st.session_state["fred_period_signature"] = signature
 
 with col_start:
-    dt_ini_value = st.date_input("Início", min_value=global_min.date(), max_value=global_max.date(), key="fred_dt_ini_input", format="YYYY/MM/DD")
+    dt_ini_value = st.date_input(
+        "Início",
+        min_value=global_min.date(),
+        max_value=global_max.date(),
+        value=st.session_state["fred_dt_ini_value"],
+        key="fred_dt_ini_input",
+        format="YYYY/MM/DD",
+    )
 
 with col_end:
-    dt_fim_value = st.date_input("Fim", min_value=global_min.date(), max_value=global_max.date(), key="fred_dt_fim_input", format="YYYY/MM/DD")
+    dt_fim_value = st.date_input(
+        "Fim",
+        min_value=global_min.date(),
+        max_value=global_max.date(),
+        value=st.session_state["fred_dt_fim_value"],
+        key="fred_dt_fim_input",
+        format="YYYY/MM/DD",
+    )
 
 row_a, row_b, row_c = st.columns([1.0, 1.4, 0.8], gap="medium")
 with row_a:
@@ -545,18 +551,15 @@ with row_c:
     show_table = st.checkbox("Tabela", key="fred_show_table")
 
 dt_ini, dt_fim = clamp_date_range(pd.Timestamp(dt_ini_value), pd.Timestamp(dt_fim_value), global_min, global_max)
-if dt_ini.date() != st.session_state["fred_dt_ini_input"] or dt_fim.date() != st.session_state["fred_dt_fim_input"]:
-    st.session_state["fred_dt_ini_input"] = dt_ini.date()
-    st.session_state["fred_dt_fim_input"] = dt_fim.date()
+if dt_ini.date() != st.session_state["fred_dt_ini_value"] or dt_fim.date() != st.session_state["fred_dt_fim_value"]:
+    st.session_state["fred_dt_ini_value"] = dt_ini.date()
+    st.session_state["fred_dt_fim_value"] = dt_fim.date()
     st.rerun()
 
 st.markdown(
     f'<p class="range-note">Dados disponíveis para a seleção atual: {format_br_date(global_min)} a {format_br_date(global_max)}.</p>',
     unsafe_allow_html=True,
 )
-if SNAPSHOT_US_PATH.exists() and snapshot_meta.get("macro_eua", {}).get("updated_at"):
-    snapshot_updated = snapshot_meta["macro_eua"]["updated_at"]
-    st.caption(f"Snapshot local ativo. Última atualização: {snapshot_updated}.")
 
 table_frames: list[pd.DataFrame] = []
 for idx in range(0, len(selected_keys), 2):

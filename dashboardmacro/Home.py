@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from pathlib import Path
 
 from src.dados_tesouro import dados_tesouro
 
@@ -149,11 +150,16 @@ URL = (
     "796d2059-14e9-44e3-80c9-2d9e30b405c1/download/"
     "precotaxatesourodireto.csv"
 )
+BASE_DIR = Path(__file__).resolve().parent
+TESOURO_SNAPSHOT_PATH = BASE_DIR / "data" / "tesouro_direto_snapshot.pkl"
 
 
 @st.cache_data
 def carregar_dados() -> pd.DataFrame:
-    df = dados_tesouro(URL)
+    if TESOURO_SNAPSHOT_PATH.exists():
+        df = pd.read_pickle(TESOURO_SNAPSHOT_PATH)
+    else:
+        df = dados_tesouro(URL)
     return df.sort_values("Data Base").copy()
 
 
