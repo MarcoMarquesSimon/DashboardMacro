@@ -660,6 +660,10 @@ if "macro_compare_base100" not in st.session_state:
     st.session_state["macro_compare_base100"] = False
 if "macro_show_table" not in st.session_state:
     st.session_state["macro_show_table"] = False
+if "macro_dt_ini_value" not in st.session_state:
+    st.session_state["macro_dt_ini_value"] = pd.Timestamp("2000-01-01").date()
+if "macro_dt_fim_value" not in st.session_state:
+    st.session_state["macro_dt_fim_value"] = pd.Timestamp.today().normalize().date()
 
 
 col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 2.2, 0.95, 0.9, 0.9], gap="medium")
@@ -709,8 +713,8 @@ global_max = (pd.Timestamp.today().normalize() + pd.DateOffset(years=1)).normali
 signature = (selected_group, tuple(selected_keys), period)
 if st.session_state.get("macro_period_signature") != signature:
     preset_ini, preset_fim = preset_dates(period, pd.Timestamp("2000-01-01").normalize(), pd.Timestamp.today().normalize())
-    st.session_state["macro_dt_ini_input"] = preset_ini.date()
-    st.session_state["macro_dt_fim_input"] = preset_fim.date()
+    st.session_state["macro_dt_ini_value"] = preset_ini.date()
+    st.session_state["macro_dt_fim_value"] = preset_fim.date()
     st.session_state["macro_period_signature"] = signature
 
 with col_start:
@@ -718,6 +722,7 @@ with col_start:
         "Início",
         min_value=global_min.date(),
         max_value=global_max.date(),
+        value=st.session_state["macro_dt_ini_value"],
         key="macro_dt_ini_input",
         format="YYYY/MM/DD",
     )
@@ -727,6 +732,7 @@ with col_end:
         "Fim",
         min_value=global_min.date(),
         max_value=global_max.date(),
+        value=st.session_state["macro_dt_fim_value"],
         key="macro_dt_fim_input",
         format="YYYY/MM/DD",
     )
@@ -754,9 +760,9 @@ if is_preset_period(period):
     preset_base_ini, preset_base_fim = preset_dates(period, pd.Timestamp("2000-01-01").normalize(), pd.Timestamp.today().normalize())
     dt_ini, dt_fim = clamp_date_range(preset_base_ini, preset_base_fim, global_min, global_max)
 
-if dt_ini.date() != st.session_state["macro_dt_ini_input"] or dt_fim.date() != st.session_state["macro_dt_fim_input"]:
-    st.session_state["macro_dt_ini_input"] = dt_ini.date()
-    st.session_state["macro_dt_fim_input"] = dt_fim.date()
+if dt_ini.date() != st.session_state["macro_dt_ini_value"] or dt_fim.date() != st.session_state["macro_dt_fim_value"]:
+    st.session_state["macro_dt_ini_value"] = dt_ini.date()
+    st.session_state["macro_dt_fim_value"] = dt_fim.date()
     st.rerun()
 
 df_long, by_key = load_macro_subset_data(
