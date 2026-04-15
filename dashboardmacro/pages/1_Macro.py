@@ -789,6 +789,12 @@ if "macro_dt_ini_value" not in st.session_state:
 if "macro_dt_fim_value" not in st.session_state:
     st.session_state["macro_dt_fim_value"] = pd.Timestamp.today().normalize().date()
 
+snapshot_active = SNAPSHOT_BR_PATH.exists()
+if snapshot_active:
+    full_df_long, full_by_key = load_macro_snapshot_panel(DATA_PIPELINE_VERSION, snapshot_mtime)
+else:
+    full_df_long, full_by_key = pd.DataFrame(columns=["data", "valor", "key"]), {}
+
 
 col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 2.4, 0.95, 0.9, 0.9], gap="medium")
 
@@ -820,14 +826,32 @@ if not selected_keys:
     st.stop()
 
 with col_period:
-    period = st.selectbox("Período", PERIOD_OPTIONS, key="macro_period")
+    period = st.selectbox("Per??odo", PERIOD_OPTIONS, key="macro_period")
 
-global_min = pd.Timestamp("1960-01-01").normalize()
-global_max = (pd.Timestamp.today().normalize() + pd.DateOffset(years=1)).normalize()
+if snapshot_active:
+    available_df = build_available_frame(full_by_key, selected_keys)
+else:
+    _, full_by_key = load_macro_live_subset_data(
+        tuple(selected_keys),
+        None,
+        None,
+        DATA_PIPELINE_VERSION,
+        codes_mtime,
+    )
+    available_df = build_available_frame(full_by_key, selected_keys)
+
+available_ranges_df = indicator_available_ranges(available_df)
+selected_range_rows = available_ranges_df[available_ranges_df["key"].isin(selected_keys)].copy()
+if selected_range_rows.empty:
+    global_min = pd.Timestamp("1960-01-01").normalize()
+    global_max = pd.Timestamp.today().normalize()
+else:
+    global_min = selected_range_rows["data_min"].min().normalize()
+    global_max = selected_range_rows["data_max"].max().normalize()
 
 signature = (selected_group, tuple(selected_keys), period)
 if st.session_state.get("macro_period_signature") != signature:
-    preset_ini, preset_fim = preset_dates(period, pd.Timestamp("2000-01-01").normalize(), pd.Timestamp.today().normalize())
+    preset_ini, preset_fim = preset_dates(period, global_min, global_max)
     st.session_state["macro_dt_ini_value"] = preset_ini.date()
     st.session_state["macro_dt_fim_value"] = preset_fim.date()
     st.session_state["macro_period_signature"] = signature
@@ -882,14 +906,11 @@ if dt_ini.date() != st.session_state["macro_dt_ini_value"] or dt_fim.date() != s
     st.session_state["macro_dt_fim_value"] = dt_fim.date()
     st.rerun()
 
-snapshot_active = SNAPSHOT_BR_PATH.exists()
 if snapshot_active:
-    full_df_long, full_by_key = load_macro_snapshot_panel(DATA_PIPELINE_VERSION, snapshot_mtime)
     by_key = {
         str(key): full_by_key.get(str(key), pd.DataFrame(columns=["data", "valor"])).copy()
         for key in selected_keys
     }
-    available_df = build_available_frame(full_by_key, selected_keys)
     df_long = filter_long_frame_by_date(full_df_long, selected_keys, dt_ini, dt_fim)
 else:
     df_long, by_key = load_macro_live_subset_data(
@@ -899,19 +920,9 @@ else:
         DATA_PIPELINE_VERSION,
         codes_mtime,
     )
-    available_df = build_available_frame(by_key, selected_keys)
 
-ranges_df = indicator_available_ranges(available_df)
-selected_range_rows = ranges_df[ranges_df["key"].isin(selected_keys)].copy()
-
-if selected_range_rows.empty:
-    available_min = dt_ini.normalize()
-    available_max = dt_fim.normalize()
-else:
-    available_min = selected_range_rows["data_min"].min().normalize()
-    available_max = selected_range_rows["data_max"].max().normalize()
-
-dt_ini, dt_fim = clamp_date_range(dt_ini, dt_fim, available_min, available_max)
+available_min = global_min
+available_max = global_max
 
 st.markdown(
     f'<p class="range-note">Dados disponíveis para a seleção atual: {format_br_date(available_min)} a {format_br_date(available_max)}.</p>',
