@@ -243,6 +243,27 @@ st.markdown(
             overflow-wrap: anywhere;
         }}
 
+        .indicator-picker-box {{
+            border: 1px solid {COR_BORDA};
+            border-radius: 16px;
+            background: #FFFFFF;
+            padding: 0.8rem 0.9rem;
+            min-height: 74px;
+        }}
+
+        .indicator-picker-summary {{
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: {COR_TEXTO};
+            margin-bottom: 0.18rem;
+        }}
+
+        .indicator-picker-sub {{
+            color: {COR_TEXTO_SUAVE};
+            font-size: 0.83rem;
+            line-height: 1.35;
+        }}
+
 
         div[data-testid="stCheckbox"] label {{
             font-weight: 500;
@@ -343,6 +364,71 @@ def compact_label(meta: pd.Series, max_chars: int = 42) -> str:
     if len(label) <= max_chars:
         return label
     return label[: max_chars - 1].rstrip() + "…"
+
+
+def selection_preview(selected_keys: list[str], label_map: dict[str, str], empty_text: str = "Nenhum indicador selecionado") -> str:
+    if not selected_keys:
+        return empty_text
+    names = [label_map.get(key, key) for key in selected_keys[:2]]
+    preview = " | ".join(names)
+    if len(selected_keys) > 2:
+        preview += f" | +{len(selected_keys) - 2} mais"
+    return preview
+
+
+def render_indicator_picker(prefix: str, valid_keys: list[str], label_map: dict[str, str]) -> list[str]:
+    selected_state_key = f"{prefix}_selected_keys"
+    search_state_key = f"{prefix}_indicator_search"
+    selected_keys = [key for key in st.session_state.get(selected_state_key, []) if key in valid_keys]
+
+    st.markdown(
+        f"""
+        <div class="indicator-picker-box">
+            <div class="indicator-picker-summary">{len(selected_keys)} indicador(es) selecionado(s)</div>
+            <div class="indicator-picker-sub">{selection_preview(selected_keys, label_map)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    with st.popover("Escolher indicadores"):
+        search_term = st.text_input(
+            "Buscar indicador",
+            key=search_state_key,
+            placeholder="Digite para filtrar",
+        )
+        actions_col_a, actions_col_b = st.columns(2, gap="small")
+        with actions_col_a:
+            if st.button("Selecionar todos", key=f"{prefix}_select_all", use_container_width=True):
+                for key in valid_keys:
+                    st.session_state[f"{prefix}_check_{key}"] = True
+                st.session_state[selected_state_key] = valid_keys.copy()
+                st.rerun()
+        with actions_col_b:
+            if st.button("Limpar", key=f"{prefix}_clear_all", use_container_width=True):
+                for key in valid_keys:
+                    st.session_state[f"{prefix}_check_{key}"] = False
+                st.session_state[selected_state_key] = []
+                st.rerun()
+
+        search_norm = normalize_text_key(search_term)
+        visible_keys = [
+            key for key in valid_keys
+            if not search_norm or search_norm in normalize_text_key(label_map.get(key, key))
+        ]
+
+        if not visible_keys:
+            st.caption("Nenhum indicador encontrado.")
+
+        for key in visible_keys:
+            st.checkbox(label_map.get(key, key), key=f"{prefix}_check_{key}")
+
+        updated_selection = [
+            key for key in valid_keys if st.session_state.get(f"{prefix}_check_{key}", False)
+        ]
+        st.session_state[selected_state_key] = updated_selection
+
+    return [key for key in st.session_state.get(selected_state_key, []) if key in valid_keys]
 
 
 @st.cache_data(show_spinner=False, persist="disk")
@@ -756,30 +842,21 @@ if previous_group != selected_group:
     st.session_state["macro_group_last_applied"] = selected_group
 
 current_selected = [key for key in st.session_state.get("macro_selected_keys", []) if key in valid_keys_for_group]
-if not current_selected:
-    current_selected = valid_keys_for_group.copy()
 st.session_state["macro_selected_keys"] = current_selected
 
 label_map = {row["key"]: compact_label(row) for _, row in group_catalog.iterrows()}
+for key in valid_keys_for_group:
+    checkbox_state_key = f"macro_check_{key}"
+    if previous_group != selected_group or checkbox_state_key not in st.session_state:
+        st.session_state[checkbox_state_key] = key in current_selected
 
 with col_ind:
-    selected_keys = st.multiselect(
-        "Indicadores",
-        options=valid_keys_for_group,
-        format_func=lambda key: label_map.get(key, key),
-        key="macro_selected_keys",
-    )
+    st.markdown("Indicadores")
+    selected_keys = render_indicator_picker("macro", valid_keys_for_group, label_map)
 
 if not selected_keys:
-    selected_keys = valid_keys_for_group.copy()
-    st.session_state["macro_selected_keys"] = selected_keys
-
-selected_labels = [label_map.get(key, key) for key in selected_keys]
-if selected_labels:
-    st.markdown(
-        f'<p class="selection-note">{len(selected_labels)} indicador(es) selecionado(s).</p>',
-        unsafe_allow_html=True,
-    )
+    st.info("Selecione ao menos um indicador para visualizar os dados.")
+    st.stop()
 
 with col_period:
     period = st.selectbox("Período", PERIOD_OPTIONS, key="macro_period")
