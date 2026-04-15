@@ -356,6 +356,7 @@ def extrair_bcb(
 ) -> pd.DataFrame:
     inicio_fmt = _normalize_date_param(inicio)
     fim_fmt = _normalize_date_param(fim)
+    requested_range = bool(inicio_fmt or fim_fmt)
 
     if inicio_fmt and fim_fmt and pd.to_datetime(inicio_fmt, dayfirst=True) > pd.to_datetime(fim_fmt, dayfirst=True):
         raise ValueError("A data inicial nao pode ser maior que a data final.")
@@ -363,7 +364,7 @@ def extrair_bcb(
     cache_path = Path(cache_dir) if cache_dir else None
     if cache_path is not None:
         cache_path.mkdir(parents=True, exist_ok=True)
-        cached = _read_cache(cache_path, codigo, ttl_hours)
+        cached = None if requested_range else _read_cache(cache_path, codigo, ttl_hours)
         if cached is not None:
             cached = _filter_date_range(cached, inicio_fmt, fim_fmt)
             return _apply_metadata(
@@ -389,7 +390,7 @@ def extrair_bcb(
                 df = full_df
                 used_full_series_fallback = True
 
-        if cache_path is not None and (not df.empty or (inicio_fmt is None and fim_fmt is None)):
+        if cache_path is not None and not requested_range and (not df.empty or (inicio_fmt is None and fim_fmt is None)):
             cache_df = df if not used_full_series_fallback else _request_series(session, int(codigo), timeout=timeout)
             if not cache_df.empty:
                 _write_cache(cache_df, cache_path, codigo)
