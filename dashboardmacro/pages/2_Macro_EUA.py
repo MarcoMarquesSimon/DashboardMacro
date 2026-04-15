@@ -172,6 +172,17 @@ st.markdown(
             margin-bottom: 0.8rem;
         }}
 
+        .filter-label {{
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: {COR_TEXTO};
+            margin: 0 0 0.35rem 0;
+        }}
+
+        .filter-action {{
+            margin-top: 1.55rem;
+        }}
+
         .indicator-picker-box {{
             border: 1px solid {COR_BORDA};
             border-radius: 16px;
@@ -229,7 +240,7 @@ st.markdown(
         }}
 
         div[data-testid="stRadio"] [role="radiogroup"] {{
-            justify-content: flex-start;
+            justify-content: flex-end;
         }}
 
         div[data-testid="stDataFrame"] {{
@@ -568,7 +579,7 @@ if "fred_dt_ini_value" not in st.session_state:
 if "fred_dt_fim_value" not in st.session_state:
     st.session_state["fred_dt_fim_value"] = pd.Timestamp.today().normalize().date()
 
-col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 2.2, 0.95, 0.9, 0.9], gap="medium")
+col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 2.4, 0.95, 0.9, 0.9], gap="medium")
 
 with col_group:
     selected_group = st.selectbox("Grupo", groups, key="fred_group")
@@ -589,7 +600,7 @@ for key in valid_keys_for_group:
         st.session_state[checkbox_state_key] = key in current_selected
 
 with col_ind:
-    st.markdown("Indicadores")
+    st.markdown('<div class="filter-label">Indicadores</div>', unsafe_allow_html=True)
     selected_keys = render_indicator_picker("fred", valid_keys_for_group, label_map)
 
 if not selected_keys:
@@ -636,12 +647,17 @@ with col_end:
         format="YYYY/MM/DD",
     )
 
-row_a, row_gap, row_b = st.columns([0.9, 2.5, 1.0], gap="medium")
+row_a, row_b, row_c, row_d, row_e = st.columns([1.05, 2.4, 0.95, 0.9, 0.9], gap="medium")
 with row_a:
+    st.markdown('<div class="filter-action"></div>', unsafe_allow_html=True)
     compare_base100 = st.checkbox("Comparar (base 100)", key="fred_compare_base100")
-with row_gap:
-    st.markdown("&nbsp;", unsafe_allow_html=True)
 with row_b:
+    st.markdown("&nbsp;", unsafe_allow_html=True)
+with row_c:
+    st.markdown("&nbsp;", unsafe_allow_html=True)
+with row_d:
+    st.markdown("&nbsp;", unsafe_allow_html=True)
+with row_e:
     range_behavior = st.radio(
         "Sem dados no intervalo",
         RANGE_BEHAVIOR_OPTIONS,

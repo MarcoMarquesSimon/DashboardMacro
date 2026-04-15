@@ -235,33 +235,15 @@ st.markdown(
             fill: #FFFFFF !important;
         }}
 
-        .selection-note {{
-            color: {COR_TEXTO_SUAVE};
-            font-size: 0.86rem;
-            line-height: 1.45;
-            margin: 0.35rem 0 0.1rem 0;
-            overflow-wrap: anywhere;
-        }}
-
-        .indicator-picker-box {{
-            border: 1px solid {COR_BORDA};
-            border-radius: 16px;
-            background: #FFFFFF;
-            padding: 0.8rem 0.9rem;
-            min-height: 74px;
-        }}
-
-        .indicator-picker-summary {{
+        .filter-label {{
             font-size: 0.95rem;
-            font-weight: 700;
+            font-weight: 500;
             color: {COR_TEXTO};
-            margin-bottom: 0.18rem;
+            margin: 0 0 0.35rem 0;
         }}
 
-        .indicator-picker-sub {{
-            color: {COR_TEXTO_SUAVE};
-            font-size: 0.83rem;
-            line-height: 1.35;
+        .filter-action {{
+            margin-top: 1.55rem;
         }}
 
 
@@ -278,7 +260,7 @@ st.markdown(
         }}
 
         div[data-testid="stRadio"] [role="radiogroup"] {{
-            justify-content: flex-start;
+            justify-content: flex-end;
         }}
 
         .stDownloadButton > button {{
@@ -808,7 +790,7 @@ if "macro_dt_fim_value" not in st.session_state:
     st.session_state["macro_dt_fim_value"] = pd.Timestamp.today().normalize().date()
 
 
-col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 2.2, 0.95, 0.9, 0.9], gap="medium")
+col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 2.4, 0.95, 0.9, 0.9], gap="medium")
 
 with col_group:
     selected_group = st.selectbox("Grupo", groups, key="macro_group")
@@ -830,7 +812,7 @@ for key in valid_keys_for_group:
         st.session_state[checkbox_state_key] = key in current_selected
 
 with col_ind:
-    st.markdown("Indicadores")
+    st.markdown('<div class="filter-label">Indicadores</div>', unsafe_allow_html=True)
     selected_keys = render_indicator_picker("macro", valid_keys_for_group, label_map)
 
 if not selected_keys:
@@ -870,12 +852,17 @@ with col_end:
         format="YYYY/MM/DD",
     )
 
-row_a, row_gap, row_b = st.columns([0.9, 2.5, 1.0], gap="medium")
+row_a, row_b, row_c, row_d, row_e = st.columns([1.05, 2.4, 0.95, 0.9, 0.9], gap="medium")
 with row_a:
+    st.markdown('<div class="filter-action"></div>', unsafe_allow_html=True)
     compare_base100 = st.checkbox("Comparar (base 100)", key="macro_compare_base100")
-with row_gap:
-    st.markdown("&nbsp;", unsafe_allow_html=True)
 with row_b:
+    st.markdown("&nbsp;", unsafe_allow_html=True)
+with row_c:
+    st.markdown("&nbsp;", unsafe_allow_html=True)
+with row_d:
+    st.markdown("&nbsp;", unsafe_allow_html=True)
+with row_e:
     range_behavior = st.radio(
         "Sem dados no intervalo",
         RANGE_BEHAVIOR_OPTIONS,
@@ -889,10 +876,6 @@ dt_ini, dt_fim = clamp_date_range(
     global_min,
     global_max,
 )
-
-if is_preset_period(period):
-    preset_base_ini, preset_base_fim = preset_dates(period, pd.Timestamp("2000-01-01").normalize(), pd.Timestamp.today().normalize())
-    dt_ini, dt_fim = clamp_date_range(preset_base_ini, preset_base_fim, global_min, global_max)
 
 if dt_ini.date() != st.session_state["macro_dt_ini_value"] or dt_fim.date() != st.session_state["macro_dt_fim_value"]:
     st.session_state["macro_dt_ini_value"] = dt_ini.date()
