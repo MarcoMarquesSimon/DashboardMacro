@@ -35,7 +35,6 @@ CACHE_DIR = BASE_DIR / ".cache_sgs"
 DATA_PIPELINE_VERSION = "2026-04-15-v1"
 
 PERIOD_OPTIONS = ["6M", "1Y", "3Y", "5Y", "10Y", "YTD", "Tudo"]
-RANGE_BEHAVIOR_OPTIONS = ["Mais próximo disponível", "Intervalo exato"]
 MOJIBAKE_MARKERS = ("Ã", "Â", "â", "€", "™", "\x8d", "\x81", "\x82", "\x83")
 
 
@@ -793,8 +792,6 @@ if "macro_group_last_applied" not in st.session_state:
 
 if "macro_period" not in st.session_state:
     st.session_state["macro_period"] = "1Y"
-if "macro_range_behavior" not in st.session_state:
-    st.session_state["macro_range_behavior"] = RANGE_BEHAVIOR_OPTIONS[0]
 if "macro_compare_base100" not in st.session_state:
     st.session_state["macro_compare_base100"] = False
 if "macro_dt_ini_value" not in st.session_state:
@@ -809,7 +806,7 @@ else:
     full_df_long, full_by_key = pd.DataFrame(columns=["data", "valor", "key"]), {}
 
 
-col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 1.15, 0.95, 0.9, 0.9], gap="medium")
+col_group, col_ind, col_period, col_start, col_end = st.columns(5, gap="medium")
 
 with col_group:
     st.markdown('<div class="filter-label">Grupo</div>', unsafe_allow_html=True)
@@ -906,7 +903,7 @@ with col_end:
         label_visibility="collapsed",
     )
 
-row_a, row_b, row_c, row_d, row_e = st.columns([1.05, 1.15, 0.95, 0.9, 0.9], gap="medium")
+row_a, row_b, row_c, row_d, row_e = st.columns(5, gap="medium")
 with row_a:
     st.markdown('<div class="filter-action filter-row-bottom"></div>', unsafe_allow_html=True)
     compare_base100 = st.checkbox("Comparar (base 100)", key="macro_compare_base100")
@@ -917,13 +914,7 @@ with row_c:
 with row_d:
     st.markdown("", unsafe_allow_html=True)
 with row_e:
-    st.markdown('<div class="range-radio-wrap"></div>', unsafe_allow_html=True)
-    range_behavior = st.radio(
-        "Sem dados no intervalo",
-        RANGE_BEHAVIOR_OPTIONS,
-        key="macro_range_behavior",
-        horizontal=True,
-    )
+    st.markdown("", unsafe_allow_html=True)
 
 dt_ini, dt_fim = clamp_date_range(
     pd.Timestamp(dt_ini_value),
@@ -981,7 +972,7 @@ for idx in range(0, len(selected_keys), 2):
             str(meta.get("periodicidade", "")),
             dt_ini,
             dt_fim,
-            range_behavior,
+            "Mais pr?ximo dispon?vel",
         )
 
         if compare_base100 and not serie_resolved.empty:

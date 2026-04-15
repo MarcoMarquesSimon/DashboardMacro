@@ -32,7 +32,6 @@ DATA_PIPELINE_VERSION = "2026-04-15-v1"
 DEFAULT_FRED_API_KEY = "da9de0f64ae8f49db8bfc2b01d51c163"
 
 PERIOD_OPTIONS = ["6M", "1Y", "3Y", "5Y", "10Y", "YTD", "Tudo"]
-RANGE_BEHAVIOR_OPTIONS = ["Mais próximo disponível", "Intervalo exato"]
 
 
 st.markdown(
@@ -583,8 +582,6 @@ if "fred_group_last_applied" not in st.session_state:
     st.session_state["fred_group_last_applied"] = active_group
 if "fred_period" not in st.session_state:
     st.session_state["fred_period"] = "1Y"
-if "fred_range_behavior" not in st.session_state:
-    st.session_state["fred_range_behavior"] = RANGE_BEHAVIOR_OPTIONS[0]
 if "fred_compare_base100" not in st.session_state:
     st.session_state["fred_compare_base100"] = False
 if "fred_dt_ini_value" not in st.session_state:
@@ -592,7 +589,7 @@ if "fred_dt_ini_value" not in st.session_state:
 if "fred_dt_fim_value" not in st.session_state:
     st.session_state["fred_dt_fim_value"] = pd.Timestamp.today().normalize().date()
 
-col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 1.15, 0.95, 0.9, 0.9], gap="medium")
+col_group, col_ind, col_period, col_start, col_end = st.columns(5, gap="medium")
 
 with col_group:
     st.markdown('<div class="filter-label">Grupo</div>', unsafe_allow_html=True)
@@ -677,7 +674,7 @@ with col_end:
         label_visibility="collapsed",
     )
 
-row_a, row_b, row_c, row_d, row_e = st.columns([1.05, 1.15, 0.95, 0.9, 0.9], gap="medium")
+row_a, row_b, row_c, row_d, row_e = st.columns(5, gap="medium")
 with row_a:
     st.markdown('<div class="filter-action filter-row-bottom"></div>', unsafe_allow_html=True)
     compare_base100 = st.checkbox("Comparar (base 100)", key="fred_compare_base100")
@@ -688,13 +685,7 @@ with row_c:
 with row_d:
     st.markdown("", unsafe_allow_html=True)
 with row_e:
-    st.markdown('<div class="range-radio-wrap"></div>', unsafe_allow_html=True)
-    range_behavior = st.radio(
-        "Sem dados no intervalo",
-        RANGE_BEHAVIOR_OPTIONS,
-        key="fred_range_behavior",
-        horizontal=True,
-    )
+    st.markdown("", unsafe_allow_html=True)
 
 dt_ini, dt_fim = clamp_date_range(pd.Timestamp(dt_ini_value), pd.Timestamp(dt_fim_value), global_min, global_max)
 if dt_ini.date() != st.session_state["fred_dt_ini_value"] or dt_fim.date() != st.session_state["fred_dt_fim_value"]:
@@ -724,7 +715,7 @@ for idx in range(0, len(selected_keys), 2):
             str(meta.get("frequencia", "")),
             dt_ini,
             dt_fim,
-            range_behavior,
+            "Mais pr?ximo dispon?vel",
         )
         if compare_base100 and not serie_resolved.empty:
             serie_resolved = normalize_base_100(serie_resolved)
