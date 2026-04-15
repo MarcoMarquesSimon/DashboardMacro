@@ -256,6 +256,10 @@ st.markdown(
             font-weight: 500;
         }}
 
+        div[data-testid="stRadio"] [role="radiogroup"] {{
+            justify-content: flex-end;
+        }}
+
         .stDownloadButton > button {{
             background: {COR_PRIMARIA};
             color: white;
@@ -812,11 +816,9 @@ with col_end:
         format="YYYY/MM/DD",
     )
 
-row_a, row_spacer, row_b, row_c = st.columns([1.0, 0.28, 1.85, 0.7], gap="medium")
+row_a, row_b, row_c = st.columns([1.0, 2.05, 0.7], gap="medium")
 with row_a:
     compare_base100 = st.checkbox("Comparar (base 100)", key="macro_compare_base100")
-with row_spacer:
-    st.markdown("&nbsp;", unsafe_allow_html=True)
 with row_b:
     range_behavior = st.radio(
         "Sem dados no intervalo",
