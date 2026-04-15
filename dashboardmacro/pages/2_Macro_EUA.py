@@ -183,6 +183,11 @@ st.markdown(
             margin-top: 1.55rem;
         }}
 
+        div[data-testid="stPopover"] > button {{
+            width: 100%;
+            justify-content: space-between;
+        }}
+
         .indicator-picker-box {{
             border: 1px solid {COR_BORDA};
             border-radius: 16px;
@@ -582,7 +587,8 @@ if "fred_dt_fim_value" not in st.session_state:
 col_group, col_ind, col_period, col_start, col_end = st.columns([1.05, 2.4, 0.95, 0.9, 0.9], gap="medium")
 
 with col_group:
-    selected_group = st.selectbox("Grupo", groups, key="fred_group")
+    st.markdown('<div class="filter-label">Grupo</div>', unsafe_allow_html=True)
+    selected_group = st.selectbox("Grupo", groups, key="fred_group", label_visibility="collapsed")
 
 group_catalog = catalog[catalog["grupo"] == selected_group].copy()
 valid_keys_for_group = list(group_catalog["key"])
@@ -608,7 +614,8 @@ if not selected_keys:
     st.stop()
 
 with col_period:
-    period = st.selectbox("Período", PERIOD_OPTIONS, key="fred_period")
+    st.markdown('<div class="filter-label">Per&iacute;odo</div>', unsafe_allow_html=True)
+    period = st.selectbox("Periodo", PERIOD_OPTIONS, key="fred_period", label_visibility="collapsed")
 
 selected_range_rows = ranges_df[ranges_df["key"].isin(selected_keys)].copy()
 if selected_range_rows.empty:
@@ -628,6 +635,7 @@ if st.session_state.get("fred_period_signature") != signature:
     st.session_state["fred_period_signature"] = signature
 
 with col_start:
+    st.markdown('<div class="filter-label">In&iacute;cio</div>', unsafe_allow_html=True)
     dt_ini_value = st.date_input(
         "Início",
         min_value=global_min.date(),
@@ -635,9 +643,11 @@ with col_start:
         value=st.session_state["fred_dt_ini_value"],
         key="fred_dt_ini_input",
         format="YYYY/MM/DD",
+        label_visibility="collapsed",
     )
 
 with col_end:
+    st.markdown('<div class="filter-label">Fim</div>', unsafe_allow_html=True)
     dt_fim_value = st.date_input(
         "Fim",
         min_value=global_min.date(),
@@ -645,6 +655,7 @@ with col_end:
         value=st.session_state["fred_dt_fim_value"],
         key="fred_dt_fim_input",
         format="YYYY/MM/DD",
+        label_visibility="collapsed",
     )
 
 row_a, row_b, row_c, row_d, row_e = st.columns([1.05, 2.4, 0.95, 0.9, 0.9], gap="medium")
