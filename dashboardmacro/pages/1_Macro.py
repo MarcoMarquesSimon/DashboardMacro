@@ -425,6 +425,10 @@ def preset_dates(period: str, min_date: pd.Timestamp, max_date: pd.Timestamp) ->
     return max(start, min_date), max_date
 
 
+def is_preset_period(period: str) -> bool:
+    return period in {"6M", "1Y", "3Y", "5Y", "10Y", "YTD", "Tudo"}
+
+
 def clamp_date_range(
     start: pd.Timestamp | None,
     end: pd.Timestamp | None,
@@ -745,6 +749,10 @@ dt_ini, dt_fim = clamp_date_range(
     global_min,
     global_max,
 )
+
+if is_preset_period(period):
+    preset_base_ini, preset_base_fim = preset_dates(period, pd.Timestamp("2000-01-01").normalize(), pd.Timestamp.today().normalize())
+    dt_ini, dt_fim = clamp_date_range(preset_base_ini, preset_base_fim, global_min, global_max)
 
 if dt_ini.date() != st.session_state["macro_dt_ini_input"] or dt_fim.date() != st.session_state["macro_dt_fim_input"]:
     st.session_state["macro_dt_ini_input"] = dt_ini.date()
