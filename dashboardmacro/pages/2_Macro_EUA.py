@@ -491,8 +491,6 @@ if "fred_range_behavior" not in st.session_state:
     st.session_state["fred_range_behavior"] = RANGE_BEHAVIOR_OPTIONS[0]
 if "fred_compare_base100" not in st.session_state:
     st.session_state["fred_compare_base100"] = False
-if "fred_show_table" not in st.session_state:
-    st.session_state["fred_show_table"] = False
 if "fred_dt_ini_value" not in st.session_state:
     st.session_state["fred_dt_ini_value"] = pd.Timestamp("2000-01-01").date()
 if "fred_dt_fim_value" not in st.session_state:
@@ -568,7 +566,7 @@ with col_end:
         format="YYYY/MM/DD",
     )
 
-row_a, row_gap, row_b, row_c = st.columns([0.9, 2.1, 1.0, 0.5], gap="medium")
+row_a, row_gap, row_b = st.columns([0.9, 2.5, 1.0], gap="medium")
 with row_a:
     compare_base100 = st.checkbox("Comparar (base 100)", key="fred_compare_base100")
 with row_gap:
@@ -580,8 +578,6 @@ with row_b:
         key="fred_range_behavior",
         horizontal=True,
     )
-with row_c:
-    show_table = st.checkbox("Tabela", key="fred_show_table")
 
 dt_ini, dt_fim = clamp_date_range(pd.Timestamp(dt_ini_value), pd.Timestamp(dt_fim_value), global_min, global_max)
 if dt_ini.date() != st.session_state["fred_dt_ini_value"] or dt_fim.date() != st.session_state["fred_dt_fim_value"]:
@@ -594,7 +590,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-table_frames: list[pd.DataFrame] = []
 for idx in range(0, len(selected_keys), 2):
     row_keys = selected_keys[idx : idx + 2]
     cols = st.columns(2, gap="large")
@@ -669,17 +664,3 @@ for idx in range(0, len(selected_keys), 2):
             fig = build_indicator_chart(serie_resolved)
             st.plotly_chart(fig, use_container_width=True, config={"displaylogo": False, "modeBarButtonsToRemove": ["toggleSpikelines"], "responsive": True})
 
-            export_df = serie_resolved.copy()
-            export_df["indicador"] = indicator_name
-            export_df["unidade"] = unit_label
-            table_frames.append(export_df)
-
-if show_table:
-    if table_frames:
-        table_df = pd.concat(table_frames, ignore_index=True)
-        table_df = table_df[["indicador", "data", "valor", "unidade"]].copy()
-        table_df["data"] = pd.to_datetime(table_df["data"], errors="coerce").dt.strftime("%d/%m/%Y")
-        table_df["valor"] = table_df["valor"].map(lambda value: format_br_number(value, CASAS))
-        st.dataframe(table_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhum dado disponível para exibir na tabela.")
