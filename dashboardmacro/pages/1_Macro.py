@@ -661,7 +661,6 @@ with col_ind:
     selected_keys = st.multiselect(
         "Indicadores",
         options=valid_keys_for_group,
-        default=current_selected,
         format_func=lambda key: label_map.get(key, key),
         key="macro_selected_keys",
     )
