@@ -32,7 +32,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 CODES_PATH = BASE_DIR / "data" / "codes.csv"
 SNAPSHOT_BR_PATH = BASE_DIR / "data" / "macro_brasil_snapshot.pkl"
 CACHE_DIR = BASE_DIR / ".cache_sgs"
-DATA_PIPELINE_VERSION = "2026-04-16-v14"
+DATA_PIPELINE_VERSION = "2026-04-16-v15"
 DERIVED_DEPENDENCIES = {
     "saldo_tc_idp_12m": ["transacoes_correntes", "ide_pais_12m"],
     "m1_var_12m": ["agregado_monetario_m1"],
@@ -380,6 +380,52 @@ def recompute_visual_derived_series(by_key: dict[str, pd.DataFrame]) -> dict[str
         if not merged.empty:
             merged["valor"] = merged["valor_idp"] + merged["valor_tc"]
             out["saldo_tc_idp_12m"] = merged[["data", "valor"]].copy()
+
+    m1 = out.get("agregado_monetario_m1", pd.DataFrame(columns=["data", "valor"])).copy()
+    if not m1.empty:
+        m1["data"] = pd.to_datetime(m1["data"], errors="coerce")
+        m1["valor"] = pd.to_numeric(m1["valor"], errors="coerce")
+        m1 = m1.dropna(subset=["data", "valor"]).sort_values("data")
+        if not m1.empty:
+            m1["periodo"] = m1["data"].dt.to_period("M")
+            monthly = (
+                m1.groupby("periodo", as_index=False)["valor"]
+                .mean()
+                .sort_values("periodo")
+                .reset_index(drop=True)
+            )
+            monthly["valor"] = monthly["valor"].pct_change(12) * 100
+            monthly["data"] = monthly["periodo"].dt.to_timestamp()
+            monthly = monthly.dropna(subset=["valor"])[["data", "valor"]].reset_index(drop=True)
+            out["m1_var_12m"] = monthly
+
+    ipca = out.get("ipca_12_meses", pd.DataFrame(columns=["data", "valor"])).copy()
+    m1_yoy = out.get("m1_var_12m", pd.DataFrame(columns=["data", "valor"])).copy()
+    if not ipca.empty and not m1_yoy.empty:
+        ipca["data"] = pd.to_datetime(ipca["data"], errors="coerce")
+        ipca["valor"] = pd.to_numeric(ipca["valor"], errors="coerce")
+        m1_yoy["data"] = pd.to_datetime(m1_yoy["data"], errors="coerce")
+        m1_yoy["valor"] = pd.to_numeric(m1_yoy["valor"], errors="coerce")
+        ipca = ipca.dropna(subset=["data", "valor"]).sort_values("data")
+        m1_yoy = m1_yoy.dropna(subset=["data", "valor"]).sort_values("data")
+        if not ipca.empty and not m1_yoy.empty:
+            ipca["periodo"] = ipca["data"].dt.to_period("M")
+            m1_yoy["periodo"] = m1_yoy["data"].dt.to_period("M")
+            merged = (
+                m1_yoy.groupby("periodo", as_index=False).tail(1)[["periodo", "valor"]]
+                .rename(columns={"valor": "m1_var_12m"})
+                .merge(
+                    ipca.groupby("periodo", as_index=False).tail(1)[["periodo", "valor"]].rename(columns={"valor": "ipca_12_meses"}),
+                    on="periodo",
+                    how="inner",
+                )
+                .sort_values("periodo")
+                .reset_index(drop=True)
+            )
+            if not merged.empty:
+                merged["data"] = merged["periodo"].dt.to_timestamp()
+                merged["valor"] = merged["m1_var_12m"] - merged["ipca_12_meses"]
+                out["inflacao12_m1yoy"] = merged[["data", "valor"]].copy()
 
     return out
 
@@ -1025,18 +1071,12 @@ with col_period:
     period = st.selectbox("Periodo", PERIOD_OPTIONS, key="macro_period", label_visibility="collapsed")
 
 if snapshot_active:
-    if selected_has_derived:
-        _, live_available_by_key = load_macro_live_subset_data(
-            tuple(expanded_selected_keys),
-            None,
-            None,
-            DATA_PIPELINE_VERSION,
-            codes_mtime,
-        )
-        available_df = build_available_frame(live_available_by_key, selected_keys)
-        full_by_key = {**full_by_key, **live_available_by_key}
-    else:
-        available_df = build_available_frame(full_by_key, selected_keys)
+    snapshot_subset = {
+        str(key): full_by_key.get(str(key), pd.DataFrame(columns=["data", "valor"])).copy()
+        for key in expanded_selected_keys
+    }
+    snapshot_subset = recompute_visual_derived_series(snapshot_subset)
+    available_df = build_available_frame(snapshot_subset, selected_keys)
 else:
     _, full_by_key = load_macro_live_subset_data(
         tuple(expanded_selected_keys),
@@ -1124,20 +1164,12 @@ if dt_ini.date() != st.session_state["macro_dt_ini_value"] or dt_fim.date() != s
     st.rerun()
 
 if snapshot_active:
-    if selected_has_derived:
-        df_long, by_key = load_macro_live_subset_data(
-            tuple(expanded_selected_keys),
-            dt_ini.strftime("%Y-%m-%d"),
-            dt_fim.strftime("%Y-%m-%d"),
-            DATA_PIPELINE_VERSION,
-            codes_mtime,
-        )
-    else:
-        by_key = {
-            str(key): full_by_key.get(str(key), pd.DataFrame(columns=["data", "valor"])).copy()
-            for key in expanded_selected_keys
-        }
-        df_long = filter_long_frame_by_date(full_df_long, selected_keys, dt_ini, dt_fim)
+    by_key = {
+        str(key): full_by_key.get(str(key), pd.DataFrame(columns=["data", "valor"])).copy()
+        for key in expanded_selected_keys
+    }
+    by_key = recompute_visual_derived_series(by_key)
+    df_long = filter_long_frame_by_date(full_df_long, selected_keys, dt_ini, dt_fim)
 else:
     df_long, by_key = load_macro_live_subset_data(
         tuple(expanded_selected_keys),
@@ -1147,7 +1179,7 @@ else:
         codes_mtime,
     )
 
-if "saldo_tc_idp_12m" in selected_keys:
+if selected_has_derived:
     by_key = recompute_visual_derived_series(by_key)
 
 available_min = global_min
