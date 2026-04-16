@@ -32,7 +32,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 CODES_PATH = BASE_DIR / "data" / "codes.csv"
 SNAPSHOT_BR_PATH = BASE_DIR / "data" / "macro_brasil_snapshot.pkl"
 CACHE_DIR = BASE_DIR / ".cache_sgs"
-DATA_PIPELINE_VERSION = "2026-04-16-v15"
+DATA_PIPELINE_VERSION = "2026-04-16-v16"
 DERIVED_DEPENDENCIES = {
     "saldo_tc_idp_12m": ["transacoes_correntes", "ide_pais_12m"],
     "m1_var_12m": ["agregado_monetario_m1"],
@@ -811,16 +811,20 @@ def build_indicator_chart(
     fig = go.Figure()
 
     if series_key == "m1_var_12m":
-        fig.add_trace(
-            go.Scatter(
-                x=df_plot["data"],
-                y=df_plot["valor"],
-                mode="lines",
-                line=dict(color=COR_PRIMARIA, width=2.4),
-                hovertemplate="%{x|%d/%m/%Y}<br>%{y:,.2f}<extra></extra>",
-                showlegend=False,
+        segments = list(_line_segments(df_plot))
+        if not segments and not df_plot.empty:
+            segments = [(df_plot, COR_POSITIVA if float(df_plot["valor"].iloc[-1]) >= 0 else COR_NEGATIVA)]
+        for chunk, color in segments:
+            fig.add_trace(
+                go.Scatter(
+                    x=chunk["data"],
+                    y=chunk["valor"],
+                    mode="lines",
+                    line=dict(color=color, width=2.4),
+                    hovertemplate="%{x|%d/%m/%Y}<br>%{y:,.2f}<extra></extra>",
+                    showlegend=False,
+                )
             )
-        )
     elif normalize_text_key(chart_type) == "barras":
         colors = np.where(df_plot["valor"] >= 0, COR_POSITIVA, COR_NEGATIVA)
         fig.add_bar(
