@@ -781,9 +781,14 @@ def _line_segments(df_plot: pd.DataFrame) -> Iterable[tuple[pd.DataFrame, str]]:
     work["segment"] = segment_ids
 
     segments = []
+    previous_tail = None
     for _, chunk in work.groupby("segment"):
+        chunk = chunk.copy()
+        if previous_tail is not None:
+            chunk = pd.concat([previous_tail, chunk], ignore_index=True)
         color = COR_POSITIVA if float(chunk["valor"].iloc[-1]) >= 0 else COR_NEGATIVA
         segments.append((chunk, color))
+        previous_tail = chunk.tail(1).copy()
     return segments
 
 
