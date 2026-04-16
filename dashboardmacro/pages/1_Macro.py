@@ -32,7 +32,8 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 CODES_PATH = BASE_DIR / "data" / "codes.csv"
 SNAPSHOT_BR_PATH = BASE_DIR / "data" / "macro_brasil_snapshot.pkl"
 CACHE_DIR = BASE_DIR / ".cache_sgs"
-DATA_PIPELINE_VERSION = "2026-04-16-v18"
+DATA_PIPELINE_VERSION = "2026-04-16-v24"
+LEAD_MESES_M1 = 12
 DERIVED_DEPENDENCIES = {
     "saldo_tc_idp_12m": ["transacoes_correntes", "ide_pais_12m"],
     "m1_var_12m": ["agregado_monetario_m1"],
@@ -409,23 +410,38 @@ def recompute_visual_derived_series(by_key: dict[str, pd.DataFrame]) -> dict[str
         ipca = ipca.dropna(subset=["data", "valor"]).sort_values("data")
         m1_yoy = m1_yoy.dropna(subset=["data", "valor"]).sort_values("data")
         if not ipca.empty and not m1_yoy.empty:
-            ipca["periodo"] = ipca["data"].dt.to_period("M")
-            m1_yoy["periodo"] = m1_yoy["data"].dt.to_period("M")
+            ipca["ano_mes"] = ipca["data"].dt.to_period("M")
+            m1_yoy["data_lead"] = m1_yoy["data"] + pd.DateOffset(months=LEAD_MESES_M1)
+            m1_yoy["ano_mes"] = m1_yoy["data_lead"].dt.to_period("M")
+
+            ipca_monthly = (
+                ipca.groupby("ano_mes", as_index=False)
+                .tail(1)[["ano_mes", "valor"]]
+                .rename(columns={"valor": "ipca"})
+                .sort_values("ano_mes")
+                .reset_index(drop=True)
+            )
+            m1_monthly = (
+                m1_yoy.groupby("ano_mes", as_index=False)
+                .tail(1)[["ano_mes", "valor"]]
+                .rename(columns={"valor": "m1_lead"})
+                .sort_values("ano_mes")
+                .reset_index(drop=True)
+            )
+
+            min_per = min(ipca_monthly["ano_mes"].min(), m1_monthly["ano_mes"].min())
+            max_per = max(ipca_monthly["ano_mes"].max(), m1_monthly["ano_mes"].max())
+            calendar = pd.DataFrame({"ano_mes": pd.period_range(min_per, max_per, freq="M")})
             merged = (
-                m1_yoy.groupby("periodo", as_index=False).tail(1)[["periodo", "valor"]]
-                .rename(columns={"valor": "m1_var_12m"})
-                .merge(
-                    ipca.groupby("periodo", as_index=False).tail(1)[["periodo", "valor"]].rename(columns={"valor": "ipca_12_meses"}),
-                    on="periodo",
-                    how="inner",
-                )
-                .sort_values("periodo")
+                calendar.merge(ipca_monthly, on="ano_mes", how="left")
+                .merge(m1_monthly, on="ano_mes", how="left")
+                .sort_values("ano_mes")
                 .reset_index(drop=True)
             )
             if not merged.empty:
-                merged["data"] = merged["periodo"].dt.to_timestamp()
-                merged["valor"] = merged["m1_var_12m"] - merged["ipca_12_meses"]
-                out["inflacao12_m1yoy"] = merged[["data", "valor"]].copy()
+                merged["data"] = merged["ano_mes"].dt.to_timestamp()
+                merged["valor"] = merged["ipca"].combine_first(merged["m1_lead"])
+                out["inflacao12_m1yoy"] = merged[["data", "valor"]].dropna(subset=["valor"]).reset_index(drop=True)
 
     return out
 
@@ -896,12 +912,6 @@ def build_inflation_vs_m1_chart(
     fig = go.Figure()
     ipca_plot = simplify_display_series(ipca_series.dropna(subset=["data", "valor"]).sort_values("data").copy())
     m1_plot = simplify_display_series(m1_series.dropna(subset=["data", "valor"]).sort_values("data").copy())
-    if not ipca_plot.empty:
-        ipca_plot = ipca_plot.copy()
-        ipca_plot["data"] = ipca_plot["data"] - pd.DateOffset(months=12)
-    if not m1_plot.empty:
-        m1_plot = m1_plot.copy()
-        m1_plot["data"] = m1_plot["data"] + pd.DateOffset(months=12)
 
     fig.add_trace(
         go.Scatter(
@@ -946,7 +956,7 @@ def build_inflation_vs_m1_chart(
             borderwidth=1,
             font=dict(size=11),
         ),
-        hovermode="closest",
+        hovermode="x",
         xaxis=dict(
             showgrid=True,
             gridcolor="rgba(16,36,62,0.08)",
@@ -991,7 +1001,47 @@ def build_special_comparison_df(key: str, by_key: dict[str, pd.DataFrame]) -> tu
             df.dropna(subset=["data", "valor"], inplace=True)
             df.sort_values("data", inplace=True)
             df.reset_index(drop=True, inplace=True)
-    return ipca_12m, m1_yoy
+
+    if ipca_12m.empty and m1_yoy.empty:
+        return pd.DataFrame(), pd.DataFrame()
+
+    def _monthly_last(df: pd.DataFrame, date_col: str = "data") -> pd.DataFrame:
+        if df.empty:
+            return pd.DataFrame(columns=["ano_mes", "valor"])
+        monthly = df.copy()
+        monthly["ano_mes"] = monthly[date_col].dt.to_period("M")
+        monthly = (
+            monthly.groupby("ano_mes", as_index=False)
+            .tail(1)[["ano_mes", "valor"]]
+            .sort_values("ano_mes")
+            .reset_index(drop=True)
+        )
+        return monthly
+
+    m1_yoy = m1_yoy.copy()
+    if not m1_yoy.empty:
+        m1_yoy["data_lead"] = m1_yoy["data"] + pd.DateOffset(months=LEAD_MESES_M1)
+
+    ipca_monthly = _monthly_last(ipca_12m)
+    m1_monthly = _monthly_last(m1_yoy, "data_lead")
+
+    periods = []
+    if not ipca_monthly.empty:
+        periods.extend(ipca_monthly["ano_mes"].tolist())
+    if not m1_monthly.empty:
+        periods.extend(m1_monthly["ano_mes"].tolist())
+    if not periods:
+        return pd.DataFrame(), pd.DataFrame()
+
+    calendar = pd.DataFrame({"ano_mes": pd.period_range(min(periods), max(periods), freq="M")})
+    ipca_plot = calendar.merge(ipca_monthly, on="ano_mes", how="left")
+    m1_plot = calendar.merge(m1_monthly, on="ano_mes", how="left")
+    ipca_plot["data"] = ipca_plot["ano_mes"].dt.to_timestamp()
+    m1_plot["data"] = m1_plot["ano_mes"].dt.to_timestamp()
+
+    ipca_plot = ipca_plot.dropna(subset=["valor"])[["data", "valor"]].reset_index(drop=True)
+    m1_plot = m1_plot.dropna(subset=["valor"])[["data", "valor"]].reset_index(drop=True)
+    return ipca_plot, m1_plot
 
 
 codes_mtime = CODES_PATH.stat().st_mtime if CODES_PATH.exists() else 0.0
@@ -1230,13 +1280,15 @@ for idx in range(0, len(selected_keys), 2):
         ipca_special_resolved = pd.DataFrame()
         m1_special_resolved = pd.DataFrame()
         if not ipca_special.empty:
+            ipca_dt_ini = dt_ini - pd.DateOffset(months=LEAD_MESES_M1)
+            ipca_dt_fim = dt_fim - pd.DateOffset(months=LEAD_MESES_M1)
             ipca_special_resolved = ipca_special[
-                (ipca_special["data"] >= dt_ini) & (ipca_special["data"] <= dt_fim)
+                (ipca_special["data"] >= ipca_dt_ini) & (ipca_special["data"] <= ipca_dt_fim)
             ].copy()
         if not m1_special.empty:
-            shifted_dates = m1_special["data"] + pd.DateOffset(months=12)
-            mask = (shifted_dates >= dt_ini) & (shifted_dates <= dt_fim)
-            m1_special_resolved = m1_special.loc[mask].copy()
+            m1_special_resolved = m1_special[
+                (m1_special["data"] >= dt_ini) & (m1_special["data"] <= dt_fim)
+            ].copy()
 
         if compare_base100 and not serie_resolved.empty:
             serie_resolved = normalize_base_100(serie_resolved)
