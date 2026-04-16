@@ -500,7 +500,7 @@ def _empty_series_with_meta(meta: pd.Series, message: str) -> pd.DataFrame:
     return serie
 
 
-def _monthly_last_change_12m(serie: pd.DataFrame) -> pd.DataFrame:
+def _monthly_mean_change_12m(serie: pd.DataFrame) -> pd.DataFrame:
     if serie is None or serie.empty:
         return pd.DataFrame(columns=["data", "valor"])
 
@@ -512,7 +512,12 @@ def _monthly_last_change_12m(serie: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=["data", "valor"])
 
     monthly["periodo"] = monthly["data"].dt.to_period("M")
-    monthly = monthly.groupby("periodo", as_index=False).tail(1).copy()
+    monthly = (
+        monthly.groupby("periodo", as_index=False)["valor"]
+        .mean()
+        .sort_values("periodo")
+        .reset_index(drop=True)
+    )
     monthly["valor"] = monthly["valor"].pct_change(12) * 100
     monthly["data"] = monthly["periodo"].dt.to_timestamp()
     monthly = monthly.dropna(subset=["valor"])[["data", "valor"]].reset_index(drop=True)
@@ -574,9 +579,11 @@ def _build_derived_series(meta: pd.Series, by_key: Dict[str, pd.DataFrame]) -> p
             .sort_values("data")
             .reset_index(drop=True)
         )
-        merged["valor"] = merged["valor_tc"] - merged["valor_idp"]
+        # Transacoes correntes ja vem negativas. Somar ao IDP mostra a
+        # cobertura liquida do deficit externo pelo investimento direto.
+        merged["valor"] = merged["valor_idp"] + merged["valor_tc"]
         derived = merged[["data", "valor"]].copy()
-        derived.attrs["message"] = "Serie derivada calculada localmente a partir do catalogo."
+        derived.attrs["message"] = "Serie derivada calculada localmente como IDP + transacoes correntes."
         return derived
 
     if key == "m1_var_12m":
@@ -584,10 +591,10 @@ def _build_derived_series(meta: pd.Series, by_key: Dict[str, pd.DataFrame]) -> p
         if m1 is None or m1.empty:
             return _empty_series_with_meta(meta, "Dependencias ausentes para calcular a serie derivada.")
 
-        derived = _monthly_last_change_12m(m1)
+        derived = _monthly_mean_change_12m(m1)
         if derived.empty:
             return _empty_series_with_meta(meta, "Nao foi possivel calcular a variacao acumulada em 12 meses do M1.")
-        derived.attrs["message"] = "Serie derivada calculada localmente a partir do M1 diario."
+        derived.attrs["message"] = "Serie derivada calculada localmente a partir da media mensal do M1 diario."
         return derived
 
     if key == "inflacao12_m1yoy":
