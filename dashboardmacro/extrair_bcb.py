@@ -500,6 +500,59 @@ def _empty_series_with_meta(meta: pd.Series, message: str) -> pd.DataFrame:
     return serie
 
 
+def _monthly_last_change_12m(serie: pd.DataFrame) -> pd.DataFrame:
+    if serie is None or serie.empty:
+        return pd.DataFrame(columns=["data", "valor"])
+
+    monthly = serie[["data", "valor"]].copy()
+    monthly["data"] = pd.to_datetime(monthly["data"], errors="coerce")
+    monthly["valor"] = pd.to_numeric(monthly["valor"], errors="coerce")
+    monthly = monthly.dropna(subset=["data", "valor"]).sort_values("data")
+    if monthly.empty:
+        return pd.DataFrame(columns=["data", "valor"])
+
+    monthly["periodo"] = monthly["data"].dt.to_period("M")
+    monthly = monthly.groupby("periodo", as_index=False).tail(1).copy()
+    monthly["valor"] = monthly["valor"].pct_change(12) * 100
+    monthly["data"] = monthly["periodo"].dt.to_timestamp()
+    monthly = monthly.dropna(subset=["valor"])[["data", "valor"]].reset_index(drop=True)
+    return monthly
+
+
+def _merge_monthly_series(left: pd.DataFrame, right: pd.DataFrame) -> pd.DataFrame:
+    if left is None or right is None or left.empty or right.empty:
+        return pd.DataFrame(columns=["data", "valor_left", "valor_right"])
+
+    left_df = left[["data", "valor"]].copy()
+    right_df = right[["data", "valor"]].copy()
+    left_df["data"] = pd.to_datetime(left_df["data"], errors="coerce")
+    right_df["data"] = pd.to_datetime(right_df["data"], errors="coerce")
+    left_df["valor"] = pd.to_numeric(left_df["valor"], errors="coerce")
+    right_df["valor"] = pd.to_numeric(right_df["valor"], errors="coerce")
+    left_df = left_df.dropna(subset=["data", "valor"])
+    right_df = right_df.dropna(subset=["data", "valor"])
+    if left_df.empty or right_df.empty:
+        return pd.DataFrame(columns=["data", "valor_left", "valor_right"])
+
+    left_df["periodo"] = left_df["data"].dt.to_period("M")
+    right_df["periodo"] = right_df["data"].dt.to_period("M")
+    merged = (
+        left_df.groupby("periodo", as_index=False).tail(1)[["periodo", "valor"]]
+        .rename(columns={"valor": "valor_left"})
+        .merge(
+            right_df.groupby("periodo", as_index=False).tail(1)[["periodo", "valor"]].rename(columns={"valor": "valor_right"}),
+            on="periodo",
+            how="inner",
+        )
+        .sort_values("periodo")
+        .reset_index(drop=True)
+    )
+    if merged.empty:
+        return pd.DataFrame(columns=["data", "valor_left", "valor_right"])
+    merged["data"] = merged["periodo"].dt.to_timestamp()
+    return merged[["data", "valor_left", "valor_right"]]
+
+
 def _build_derived_series(meta: pd.Series, by_key: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     key = str(meta.get("key", "")).strip()
 
@@ -524,6 +577,29 @@ def _build_derived_series(meta: pd.Series, by_key: Dict[str, pd.DataFrame]) -> p
         merged["valor"] = merged["valor_tc"] - merged["valor_idp"]
         derived = merged[["data", "valor"]].copy()
         derived.attrs["message"] = "Serie derivada calculada localmente a partir do catalogo."
+        return derived
+
+    if key == "m1_var_12m":
+        m1 = by_key.get("agregado_monetario_m1")
+        if m1 is None or m1.empty:
+            return _empty_series_with_meta(meta, "Dependencias ausentes para calcular a serie derivada.")
+
+        derived = _monthly_last_change_12m(m1)
+        if derived.empty:
+            return _empty_series_with_meta(meta, "Nao foi possivel calcular a variacao acumulada em 12 meses do M1.")
+        derived.attrs["message"] = "Serie derivada calculada localmente a partir do M1 diario."
+        return derived
+
+    if key == "inflacao12_m1yoy":
+        m1_yoy = by_key.get("m1_var_12m")
+        ipca_12m = by_key.get("ipca_12_meses")
+        merged = _merge_monthly_series(m1_yoy, ipca_12m)
+        if merged.empty:
+            return _empty_series_with_meta(meta, "Dependencias ausentes para calcular a serie comparativa.")
+
+        merged["valor"] = merged["valor_left"] - merged["valor_right"]
+        derived = merged[["data", "valor"]].copy()
+        derived.attrs["message"] = "Serie comparativa calculada localmente a partir de M1 YoY e IPCA 12 meses."
         return derived
 
     return _empty_series_with_meta(meta, "Serie sem codigo SGS e sem regra de derivacao configurada.")

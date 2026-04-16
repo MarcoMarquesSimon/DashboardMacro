@@ -32,7 +32,12 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 CODES_PATH = BASE_DIR / "data" / "codes.csv"
 SNAPSHOT_BR_PATH = BASE_DIR / "data" / "macro_brasil_snapshot.pkl"
 CACHE_DIR = BASE_DIR / ".cache_sgs"
-DATA_PIPELINE_VERSION = "2026-04-15-v1"
+DATA_PIPELINE_VERSION = "2026-04-16-v2"
+DERIVED_DEPENDENCIES = {
+    "saldo_tc_idp_12m": ["transacoes_correntes", "ide_pais_12m"],
+    "m1_var_12m": ["agregado_monetario_m1"],
+    "inflacao12_m1yoy": ["m1_var_12m", "ipca_12_meses", "agregado_monetario_m1"],
+}
 
 PERIOD_OPTIONS = ["6M", "1Y", "3Y", "5Y", "10Y", "YTD", "Tudo"]
 MOJIBAKE_MARKERS = ("Ã", "Â", "â", "€", "™", "\x8d", "\x81", "\x82", "\x83")
@@ -337,6 +342,20 @@ def normalize_text_key(value: str) -> str:
     return "".join(ch for ch in text if not unicodedata.combining(ch))
 
 
+def expand_indicator_keys(selected_keys: Iterable[str]) -> list[str]:
+    expanded: list[str] = []
+    queue = list(selected_keys)
+    seen = set()
+    while queue:
+        key = str(queue.pop(0))
+        if key in seen:
+            continue
+        seen.add(key)
+        expanded.append(key)
+        queue.extend(DERIVED_DEPENDENCIES.get(key, []))
+    return expanded
+
+
 def format_br_number(value: float | int | None, casas: int = CASAS) -> str:
     if value is None or pd.isna(value):
         return "-"
@@ -437,7 +456,8 @@ def load_macro_live_subset_data(
     _codes_mtime: float,
 ):
     catalog = load_macro_catalog(_version, _codes_mtime)
-    subset = catalog[catalog["key"].astype(str).isin(selected_keys)].copy()
+    expanded_keys = expand_indicator_keys(selected_keys)
+    subset = catalog[catalog["key"].astype(str).isin(expanded_keys)].copy()
 
     if subset.empty:
         empty = pd.DataFrame(columns=["data", "valor", "key"])
@@ -768,6 +788,114 @@ def build_indicator_chart(
     return fig
 
 
+def build_dual_indicator_chart(
+    comparison_df: pd.DataFrame,
+    left_label: str,
+    right_label: str,
+) -> go.Figure:
+    df_plot = comparison_df.dropna(subset=["data"]).sort_values("data").copy()
+    fig = go.Figure()
+
+    if "m1_var_12m" in df_plot.columns:
+        left_col = "m1_var_12m"
+        right_col = "ipca_12_meses"
+    else:
+        left_col = "valor_left"
+        right_col = "valor_right"
+
+    left_plot = simplify_display_series(df_plot[["data", left_col]].rename(columns={left_col: "valor"}).dropna())
+    right_plot = simplify_display_series(df_plot[["data", right_col]].rename(columns={right_col: "valor"}).dropna())
+    line_mode_left = "lines" if len(left_plot) > 120 else "lines+markers"
+    line_mode_right = "lines" if len(right_plot) > 120 else "lines+markers"
+
+    fig.add_trace(
+        go.Scatter(
+            x=left_plot["data"],
+            y=left_plot["valor"],
+            mode=line_mode_left,
+            name=left_label,
+            line=dict(color=COR_POSITIVA, width=2.8),
+            marker=dict(size=5 if line_mode_left != "lines" else 0, color=COR_POSITIVA),
+            hovertemplate="%{x|%d/%m/%Y}<br>%{y:,.2f}<extra>" + left_label + "</extra>",
+            showlegend=True,
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=right_plot["data"],
+            y=right_plot["valor"],
+            mode=line_mode_right,
+            name=right_label,
+            line=dict(color=COR_PRIMARIA, width=2.8),
+            marker=dict(size=5 if line_mode_right != "lines" else 0, color=COR_PRIMARIA),
+            hovertemplate="%{x|%d/%m/%Y}<br>%{y:,.2f}<extra>" + right_label + "</extra>",
+            showlegend=True,
+        )
+    )
+
+    fig.update_layout(
+        height=310,
+        margin=dict(l=10, r=10, t=8, b=8),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=COR_TEXTO, family="Segoe UI, Arial, sans-serif"),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        hovermode="x unified",
+        xaxis=dict(
+            showgrid=True,
+            gridcolor="rgba(16,36,62,0.08)",
+            zeroline=False,
+            title=None,
+            showline=False,
+            tickfont=dict(color=COR_TEXTO_SUAVE),
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor="rgba(16,36,62,0.08)",
+            zeroline=True,
+            zerolinecolor="rgba(16,36,62,0.16)",
+            title=None,
+            showline=False,
+            tickfont=dict(color=COR_TEXTO_SUAVE),
+        ),
+    )
+    return fig
+
+
+def build_special_comparison_df(key: str, by_key: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    if key != "inflacao12_m1yoy":
+        return pd.DataFrame()
+
+    m1_yoy = by_key.get("m1_var_12m", pd.DataFrame(columns=["data", "valor"])).copy()
+    ipca_12m = by_key.get("ipca_12_meses", pd.DataFrame(columns=["data", "valor"])).copy()
+    if m1_yoy.empty or ipca_12m.empty:
+        return pd.DataFrame()
+
+    for df in (m1_yoy, ipca_12m):
+        df["data"] = pd.to_datetime(df["data"], errors="coerce")
+        df["valor"] = pd.to_numeric(df["valor"], errors="coerce")
+
+    m1_yoy["periodo"] = m1_yoy["data"].dt.to_period("M")
+    ipca_12m["periodo"] = ipca_12m["data"].dt.to_period("M")
+    merged = (
+        m1_yoy.groupby("periodo", as_index=False).tail(1)[["periodo", "valor"]]
+        .rename(columns={"valor": "m1_var_12m"})
+        .merge(
+            ipca_12m.groupby("periodo", as_index=False).tail(1)[["periodo", "valor"]].rename(columns={"valor": "ipca_12_meses"}),
+            on="periodo",
+            how="inner",
+        )
+        .sort_values("periodo")
+        .reset_index(drop=True)
+    )
+    if merged.empty:
+        return pd.DataFrame()
+    merged["data"] = merged["periodo"].dt.to_timestamp()
+    merged["valor"] = merged["m1_var_12m"] - merged["ipca_12_meses"]
+    return merged[["data", "m1_var_12m", "ipca_12_meses", "valor"]]
+
+
 codes_mtime = CODES_PATH.stat().st_mtime if CODES_PATH.exists() else 0.0
 snapshot_mtime = SNAPSHOT_BR_PATH.stat().st_mtime if SNAPSHOT_BR_PATH.exists() else 0.0
 catalog_raw = load_macro_catalog(DATA_PIPELINE_VERSION, codes_mtime)
@@ -849,6 +977,8 @@ if not selected_keys:
     st.info("Selecione ao menos um indicador para visualizar os dados.")
     st.stop()
 
+expanded_selected_keys = expand_indicator_keys(selected_keys)
+
 with col_period:
     st.markdown('<div class="filter-label">Per&iacute;odo</div>', unsafe_allow_html=True)
     period = st.selectbox("Periodo", PERIOD_OPTIONS, key="macro_period", label_visibility="collapsed")
@@ -857,7 +987,7 @@ if snapshot_active:
     available_df = build_available_frame(full_by_key, selected_keys)
 else:
     _, full_by_key = load_macro_live_subset_data(
-        tuple(selected_keys),
+        tuple(expanded_selected_keys),
         None,
         None,
         DATA_PIPELINE_VERSION,
@@ -944,12 +1074,12 @@ if dt_ini.date() != st.session_state["macro_dt_ini_value"] or dt_fim.date() != s
 if snapshot_active:
     by_key = {
         str(key): full_by_key.get(str(key), pd.DataFrame(columns=["data", "valor"])).copy()
-        for key in selected_keys
+        for key in expanded_selected_keys
     }
     df_long = filter_long_frame_by_date(full_df_long, selected_keys, dt_ini, dt_fim)
 else:
     df_long, by_key = load_macro_live_subset_data(
-        tuple(selected_keys),
+        tuple(expanded_selected_keys),
         dt_ini.strftime("%Y-%m-%d"),
         dt_fim.strftime("%Y-%m-%d"),
         DATA_PIPELINE_VERSION,
@@ -985,8 +1115,19 @@ for idx in range(0, len(selected_keys), 2):
             str(meta.get("periodicidade", "")),
             dt_ini,
             dt_fim,
-            "Mais pr?ximo dispon?vel",
+            "Mais proximo disponivel",
         )
+
+        special_comparison = build_special_comparison_df(key, by_key)
+        special_comparison_resolved = pd.DataFrame()
+        if not special_comparison.empty:
+            special_comparison_resolved = special_comparison[
+                (special_comparison["data"] >= dt_ini) & (special_comparison["data"] <= dt_fim)
+            ].copy()
+            if special_comparison_resolved.empty and not serie_resolved.empty:
+                special_comparison_resolved = special_comparison[
+                    special_comparison["data"].isin(pd.to_datetime(serie_resolved["data"], errors="coerce"))
+                ].copy()
 
         if compare_base100 and not serie_resolved.empty:
             serie_resolved = normalize_base_100(serie_resolved)
@@ -994,19 +1135,21 @@ for idx in range(0, len(selected_keys), 2):
         chart_type = str(meta.get("tipo_grafico", "linhas"))
         indicator_name = fix_mojibake(str(meta.get("indicador") or meta.get("nome") or key))
         unit_label = "Base 100" if compare_base100 else fix_mojibake(str(meta.get("unidade") or ""))
-        available_min = format_br_date(serie["data"].min()) if not serie.empty else "-"
-        available_max = format_br_date(serie["data"].max()) if not serie.empty else "-"
+        display_source = special_comparison if not special_comparison.empty else serie
+        available_min = format_br_date(display_source["data"].min()) if not display_source.empty else "-"
+        available_max = format_br_date(display_source["data"].max()) if not display_source.empty else "-"
         periodicidade = fix_mojibake(str(meta.get("periodicidade") or ""))
         with cols[col_idx]:
             latest_valid = serie_resolved.dropna(subset=["valor"]).sort_values("data")
             if latest_valid.empty:
                 value_html = "-"
-                date_html = "Última data: -"
-                pill_html = '<span class="metric-pill metric-neutral">Sem variação</span>'
+                date_html = "Ultima data: -"
+                pill_html = '<span class="metric-pill metric-neutral">Sem variacao</span>'
+                metric_label = "Ultimo valor"
             else:
                 last_row = latest_valid.iloc[-1]
                 value_html = format_br_number(last_row["valor"], CASAS)
-                date_html = f"Última data: {format_br_date(last_row['data'])}"
+                date_html = f"Ultima data: {format_br_date(last_row['data'])}"
                 delta_abs, delta_pct, delta_css = metric_delta_parts(latest_valid)
                 pill_html = ""
                 if delta_abs:
@@ -1014,17 +1157,18 @@ for idx in range(0, len(selected_keys), 2):
                 if delta_pct:
                     pill_html += f'<span class="metric-pill {delta_css}">{delta_pct}</span>'
                 if not pill_html:
-                    pill_html = '<span class="metric-pill metric-neutral">Sem variação</span>'
+                    pill_html = '<span class="metric-pill metric-neutral">Sem variacao</span>'
+                metric_label = "Spread atual" if key == "inflacao12_m1yoy" else "Ultimo valor"
 
             st.markdown(
                 f"""
                 <div class="chart-head">
                     <div class="chart-copy">
                         <div class="chart-title">{indicator_name}</div>
-                        <p class="chart-subtitle">Disponível de {available_min} a {available_max} · Frequência: {periodicidade}</p>
+                        <p class="chart-subtitle">Disponivel de {available_min} a {available_max} - Frequencia: {periodicidade}</p>
                     </div>
                     <div class="metric-wrap">
-                        <p class="metric-label">Último valor</p>
+                        <p class="metric-label">{metric_label}</p>
                         <div class="metric-value">{value_html}</div>
                         <p class="metric-date">{date_html}</p>
                         <div class="metric-row">
@@ -1042,7 +1186,14 @@ for idx in range(0, len(selected_keys), 2):
             if serie_resolved.empty:
                 continue
 
-            fig = build_indicator_chart(serie_resolved, chart_type, unit_label)
+            if key == "inflacao12_m1yoy" and not special_comparison_resolved.empty:
+                fig = build_dual_indicator_chart(
+                    special_comparison_resolved,
+                    "M1 YoY",
+                    "IPCA 12m",
+                )
+            else:
+                fig = build_indicator_chart(serie_resolved, chart_type, unit_label)
             st.plotly_chart(
                 fig,
                 use_container_width=True,

@@ -1,20 +1,20 @@
 {
-  "generated_at": "2026-04-15 15:10:03",
+  "generated_at": "2026-04-16 10:55:34",
   "macro_brasil": {
-    "updated_at": "2026-04-15 15:09:48",
-    "rows": 50695,
-    "indicators": 47,
+    "updated_at": "2026-04-16 10:55:23",
+    "rows": 51268,
+    "indicators": 49,
     "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\macro_brasil_snapshot.pkl"
   },
   "macro_eua": {
-    "updated_at": "2026-04-15 15:09:54",
-    "rows": 55217,
+    "updated_at": "2026-04-16 10:55:29",
+    "rows": 55221,
     "indicators": 17,
     "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\macro_eua_snapshot.pkl"
   },
   "tesouro_direto": {
-    "updated_at": "2026-04-15 15:10:03",
-    "rows": 169898,
+    "updated_at": "2026-04-16 10:55:34",
+    "rows": 169958,
     "titles": 8,
     "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\tesouro_direto_snapshot.pkl"
   }
