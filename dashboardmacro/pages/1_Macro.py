@@ -32,7 +32,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 CODES_PATH = BASE_DIR / "data" / "codes.csv"
 SNAPSHOT_BR_PATH = BASE_DIR / "data" / "macro_brasil_snapshot.pkl"
 CACHE_DIR = BASE_DIR / ".cache_sgs"
-DATA_PIPELINE_VERSION = "2026-04-16-v16"
+DATA_PIPELINE_VERSION = "2026-04-16-v18"
 DERIVED_DEPENDENCIES = {
     "saldo_tc_idp_12m": ["transacoes_correntes", "ide_pais_12m"],
     "m1_var_12m": ["agregado_monetario_m1"],
@@ -896,6 +896,9 @@ def build_inflation_vs_m1_chart(
     fig = go.Figure()
     ipca_plot = simplify_display_series(ipca_series.dropna(subset=["data", "valor"]).sort_values("data").copy())
     m1_plot = simplify_display_series(m1_series.dropna(subset=["data", "valor"]).sort_values("data").copy())
+    if not ipca_plot.empty:
+        ipca_plot = ipca_plot.copy()
+        ipca_plot["data"] = ipca_plot["data"] - pd.DateOffset(months=12)
     if not m1_plot.empty:
         m1_plot = m1_plot.copy()
         m1_plot["data"] = m1_plot["data"] + pd.DateOffset(months=12)
@@ -943,7 +946,7 @@ def build_inflation_vs_m1_chart(
             borderwidth=1,
             font=dict(size=11),
         ),
-        hovermode="x unified",
+        hovermode="closest",
         xaxis=dict(
             showgrid=True,
             gridcolor="rgba(16,36,62,0.08)",
