@@ -1,10 +1,12 @@
 indicador;unidade;codigo;nome;periodicidade;grupo;tipo_grafico;key;acumular_12m;mostrar_dashboard;ordem
 PIB - R$ (milhões);R$;4382;PIB acumulado dos últimos 12 meses - Valores correntes (R$ milhões);mensal;Crescimento Econômico;linhas;pib_r;;sim;1
 PIB - US$ (milhões);US$;4192;PIB acumulado dos últimos 12 meses - Em US$ milhões;mensal;Crescimento Econômico;linhas;pib_us;;sim;1
+PIB dessazonalizado trimestral;índice;22109;Produto Interno Bruto trimestral dessazonalizado;trimestral;Crescimento Econômico;linhas;pib_dessaz;;não;1
 Crescimento do PIB - Var. % anual;%;7326;Produto Interno Bruto - Taxa de variação real no ano;anual;Crescimento Econômico;barras;crescimento_pib_anual;;sim;1
 PIB Agropecuária - Var. % anual;%;7327;PIB - Agropecuária - Taxa de variação real no ano;anual;Crescimento Econômico;barras;pib_agropecuaria_anual;;sim;1
 PIB Indústria - Var. % anual;%;7328;PIB - Indústria - Taxa de variação real no ano;anual;Crescimento Econômico;barras;pib_industria_anual;;sim;1
 PIB Serviços - Var. % anual;%;7329;PIB - Serviços - Taxa de variação real no ano;anual;Crescimento Econômico;barras;pib_servicos_anual;;sim;1
+PIB efetivo vs potencial e hiato do produto;%;;PIB efetivo, potencial e hiato do produto;mensal;Crescimento Econômico;linhas;pib_efetivo_potencial_hiato;;sim;1
 Consumo de energial Industrial - GWh;GWh;1404;Consumo de energia elétrica - Brasil - Industrial;mensal;Crescimento Econômico;linhas;consumo_energial_industrial;;sim;1
 Consumo de energia Comercial - GWh;GWh;1402;Consumo de energia elétrica - Comercial;mensal;Crescimento Econômico;linhas;consumo_energia_comercial;;sim;1
 
