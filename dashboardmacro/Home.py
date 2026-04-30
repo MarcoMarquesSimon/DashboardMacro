@@ -184,15 +184,6 @@ def formatar_numero(valor: float, casas: int = 2) -> str:
     return texto.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def formatar_data_segura(valor) -> str:
-    if pd.isna(valor):
-        return "-"
-    try:
-        return pd.to_datetime(valor).strftime("%d/%m/%Y")
-    except Exception:
-        return "-"
-
-
 def criar_nome_serie(df_base: pd.DataFrame) -> pd.DataFrame:
     df_base = df_base.copy()
     df_base["Nome Serie"] = (
@@ -205,14 +196,6 @@ def criar_nome_serie(df_base: pd.DataFrame) -> pd.DataFrame:
 
 def resumo_metrica(df_base: pd.DataFrame, metrica: str):
     base = df_base.sort_values("Data Base").copy()
-    if base.empty or metrica not in base.columns:
-        return pd.NA, pd.NA, pd.NA
-
-    base[metrica] = pd.to_numeric(base[metrica], errors="coerce")
-    base = base.dropna(subset=[metrica])
-    if base.empty:
-        return pd.NA, pd.NA, pd.NA
-
     valor_atual = base[metrica].iloc[-1]
     valor_min = base[metrica].min()
     valor_max = base[metrica].max()
@@ -459,12 +442,6 @@ if df_filtrado.empty:
     st.stop()
 
 df_filtrado = criar_nome_serie(df_filtrado)
-df_filtrado["Data Base"] = pd.to_datetime(df_filtrado["Data Base"], errors="coerce")
-df_filtrado = df_filtrado.dropna(subset=["Data Base"]).copy()
-
-if df_filtrado.empty:
-    st.warning("Nao ha dados validos de data para os filtros selecionados.")
-    st.stop()
 
 ultima_data = df_filtrado["Data Base"].max()
 df_ultima_data = df_filtrado[df_filtrado["Data Base"] == ultima_data].copy()
@@ -481,13 +458,6 @@ serie_global = (
     .mean()
     .sort_values("Data Base")
 )
-
-serie_global[coluna_valor] = pd.to_numeric(serie_global[coluna_valor], errors="coerce")
-serie_global = serie_global.dropna(subset=[coluna_valor]).sort_values("Data Base")
-
-if serie_global.empty:
-    st.warning("Nao ha dados validos para a metrica selecionada nesse recorte.")
-    st.stop()
 
 valor_atual, valor_min, valor_max = resumo_metrica(serie_global, coluna_valor)
 
@@ -532,7 +502,7 @@ with col_kpis:
         <div class="kpi-card">
             <div class="kpi-title">PU</div>
             <div class="kpi-value">R$ {formatar_numero(pu_medio)}</div>
-            <div class="kpi-sub">{formatar_data_segura(ultima_data)}</div>
+            <div class="kpi-sub">{ultima_data.strftime("%d/%m/%Y")}</div>
         </div>
         """,
         unsafe_allow_html=True,

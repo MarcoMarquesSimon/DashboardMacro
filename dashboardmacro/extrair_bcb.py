@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 from urllib.parse import quote
 
-import numpy as np
 import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
@@ -525,57 +524,6 @@ def _monthly_mean_change_12m(serie: pd.DataFrame) -> pd.DataFrame:
     return monthly
 
 
-def _quadratic_trend(values: np.ndarray) -> np.ndarray:
-    n = len(values)
-    if n < 3:
-        return values.copy()
-
-    x = np.arange(n, dtype=float)
-    coef = np.polyfit(x, values, deg=2)
-    trend = np.polyval(coef, x)
-    return trend
-
-
-def build_pib_potential_gap_frame(serie: pd.DataFrame) -> pd.DataFrame:
-    if serie is None or serie.empty:
-        return pd.DataFrame(columns=["data", "valor", "valor_efetivo", "valor_potencial", "hiato_produto"])
-
-    work = serie[["data", "valor"]].copy()
-    work["data"] = pd.to_datetime(work["data"], errors="coerce")
-    work["valor"] = pd.to_numeric(work["valor"], errors="coerce")
-    work = work.dropna(subset=["data", "valor"]).sort_values("data").reset_index(drop=True)
-    if work.empty:
-        return pd.DataFrame(columns=["data", "valor", "valor_efetivo", "valor_potencial", "hiato_produto"])
-
-    median_days = work["data"].diff().dt.days.dropna().median()
-    quarterly_like = pd.notna(median_days) and median_days >= 70
-    periodo_freq = "Q" if quarterly_like else "M"
-
-    work["periodo"] = work["data"].dt.to_period(periodo_freq)
-    monthly = (
-        work.groupby("periodo", as_index=False)
-        .tail(1)[["periodo", "valor"]]
-        .sort_values("periodo")
-        .reset_index(drop=True)
-    )
-    if monthly.empty:
-        return pd.DataFrame(columns=["data", "valor", "valor_efetivo", "valor_potencial", "hiato_produto"])
-
-    actual = monthly["valor"].to_numpy(dtype=float)
-    use_log = np.all(actual > 0)
-    base = np.log(actual) if use_log else actual
-    trend_base = _quadratic_trend(base)
-    trend = np.exp(trend_base) if use_log else trend_base
-
-    monthly["data"] = monthly["periodo"].dt.to_timestamp()
-    monthly["valor_efetivo"] = actual
-    monthly["valor_potencial"] = trend
-    monthly["hiato_produto"] = np.where(trend != 0, ((actual / trend) - 1.0) * 100.0, np.nan)
-    monthly["valor"] = monthly["hiato_produto"]
-
-    return monthly[["data", "valor", "valor_efetivo", "valor_potencial", "hiato_produto"]].reset_index(drop=True)
-
-
 def _merge_monthly_series(left: pd.DataFrame, right: pd.DataFrame) -> pd.DataFrame:
     if left is None or right is None or left.empty or right.empty:
         return pd.DataFrame(columns=["data", "valor_left", "valor_right"])
@@ -659,17 +607,6 @@ def _build_derived_series(meta: pd.Series, by_key: Dict[str, pd.DataFrame]) -> p
         merged["valor"] = merged["valor_left"] - merged["valor_right"]
         derived = merged[["data", "valor"]].copy()
         derived.attrs["message"] = "Serie comparativa calculada localmente a partir de M1 YoY e IPCA 12 meses."
-        return derived
-
-    if key == "pib_efetivo_potencial_hiato":
-        pib = by_key.get("pib_dessaz")
-        if pib is None or pib.empty:
-            return _empty_series_with_meta(meta, "Dependencias ausentes para calcular o hiato do produto.")
-
-        derived = build_pib_potential_gap_frame(pib)
-        if derived.empty:
-            return _empty_series_with_meta(meta, "Nao foi possivel calcular PIB potencial e hiato do produto.")
-        derived.attrs["message"] = "Serie derivada calculada localmente com PIB dessazonalizado, tendencia quadratica, potencial e hiato do produto."
         return derived
 
     return _empty_series_with_meta(meta, "Serie sem codigo SGS e sem regra de derivacao configurada.")

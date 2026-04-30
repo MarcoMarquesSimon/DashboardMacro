@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-04-30 16:59:26",
+  "generated_at": "2026-04-16 11:35:49",
   "macro_brasil": {
-    "updated_at": "2026-04-30 16:59:26",
-    "rows": 51577,
-    "indicators": 51,
+    "updated_at": "2026-04-16 11:35:39",
+    "rows": 51268,
+    "indicators": 49,
     "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\macro_brasil_snapshot.pkl"
   },
   "macro_eua": {

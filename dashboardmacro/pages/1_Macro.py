@@ -10,7 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from extrair_bcb import build_pib_potential_gap_frame, fetch_all_indicators, load_indicators_table
+from extrair_bcb import fetch_all_indicators, load_indicators_table
 
 
 st.set_page_config(page_title="Painel Macro", page_icon="📈", layout="wide")
@@ -32,13 +32,12 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 CODES_PATH = BASE_DIR / "data" / "codes.csv"
 SNAPSHOT_BR_PATH = BASE_DIR / "data" / "macro_brasil_snapshot.pkl"
 CACHE_DIR = BASE_DIR / ".cache_sgs"
-DATA_PIPELINE_VERSION = "2026-04-30-v3"
+DATA_PIPELINE_VERSION = "2026-04-16-v24"
 LEAD_MESES_M1 = 12
 DERIVED_DEPENDENCIES = {
     "saldo_tc_idp_12m": ["transacoes_correntes", "ide_pais_12m"],
     "m1_var_12m": ["agregado_monetario_m1"],
     "inflacao12_m1yoy": ["m1_var_12m", "ipca_12_meses", "agregado_monetario_m1"],
-    "pib_efetivo_potencial_hiato": ["pib_dessaz"],
 }
 
 PERIOD_OPTIONS = ["6M", "1Y", "3Y", "5Y", "10Y", "YTD", "Tudo"]
@@ -401,12 +400,6 @@ def recompute_visual_derived_series(by_key: dict[str, pd.DataFrame]) -> dict[str
             monthly = monthly.dropna(subset=["valor"])[["data", "valor"]].reset_index(drop=True)
             out["m1_var_12m"] = monthly
 
-    pib = out.get("pib_dessaz", pd.DataFrame(columns=["data", "valor"])).copy()
-    if not pib.empty:
-        pib_gap = build_pib_potential_gap_frame(pib)
-        if not pib_gap.empty:
-            out["pib_efetivo_potencial_hiato"] = pib_gap
-
     ipca = out.get("ipca_12_meses", pd.DataFrame(columns=["data", "valor"])).copy()
     m1_yoy = out.get("m1_var_12m", pd.DataFrame(columns=["data", "valor"])).copy()
     if not ipca.empty and not m1_yoy.empty:
@@ -610,7 +603,7 @@ def load_macro_snapshot_panel(_version: str, _snapshot_mtime: float):
 
     by_key = {}
     for key, serie in df_long.groupby("key", sort=False):
-        by_key[str(key)] = serie.copy().reset_index(drop=True)
+        by_key[str(key)] = serie[["data", "valor"]].copy().reset_index(drop=True)
 
     return df_long, by_key
 
@@ -995,125 +988,6 @@ def build_inflation_vs_m1_chart(
     return fig
 
 
-def build_pib_gap_special_df(key: str, by_key: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    if key != "pib_efetivo_potencial_hiato":
-        return pd.DataFrame()
-
-    special = by_key.get("pib_efetivo_potencial_hiato", pd.DataFrame()).copy()
-    if special.empty:
-        pib = by_key.get("pib_r", pd.DataFrame(columns=["data", "valor"])).copy()
-        special = build_pib_potential_gap_frame(pib)
-    if special.empty:
-        return pd.DataFrame()
-
-    special["data"] = pd.to_datetime(special["data"], errors="coerce")
-    for col in ["valor", "valor_efetivo", "valor_potencial", "hiato_produto"]:
-        if col in special.columns:
-            special[col] = pd.to_numeric(special[col], errors="coerce")
-    special = special.dropna(subset=["data"]).sort_values("data").reset_index(drop=True)
-    return special
-
-
-def build_pib_effective_potential_gap_chart(serie: pd.DataFrame) -> go.Figure:
-    fig = go.Figure()
-    plot_df = serie.dropna(subset=["data"]).sort_values("data").reset_index(drop=True).copy()
-    if plot_df.empty:
-        return fig
-
-    if len(plot_df) > 220:
-        step = max(1, len(plot_df) // 220)
-        reduced = plot_df.iloc[::step].copy()
-        if reduced.iloc[-1]["data"] != plot_df.iloc[-1]["data"]:
-            reduced = pd.concat([reduced, plot_df.tail(1)], ignore_index=True)
-        line_df = reduced.drop_duplicates(subset=["data"]).reset_index(drop=True)
-    else:
-        line_df = plot_df.copy()
-
-    gap_colors = np.where(plot_df["hiato_produto"] >= 0, COR_POSITIVA, COR_NEGATIVA)
-    cor_potencial = "#D87A2C"
-
-    fig.add_bar(
-        x=plot_df["data"],
-        y=plot_df["hiato_produto"],
-        marker_color=gap_colors,
-        marker_line_width=0,
-        opacity=0.35,
-        name="Hiato",
-        yaxis="y2",
-        hovertemplate="%{x|%d/%m/%Y}<br>Hiato: %{y:,.2f}%<extra></extra>",
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=line_df["data"],
-            y=line_df["valor_efetivo"],
-            mode="lines",
-            name="PIB efetivo",
-            line=dict(color=COR_PRIMARIA, width=2.4),
-            hovertemplate="%{x|%d/%m/%Y}<br>PIB efetivo: %{y:,.2f}<extra></extra>",
-            yaxis="y",
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=line_df["data"],
-            y=line_df["valor_potencial"],
-            mode="lines",
-            name="PIB potencial",
-            line=dict(color=cor_potencial, width=2.2),
-            hovertemplate="%{x|%d/%m/%Y}<br>PIB potencial: %{y:,.2f}<extra></extra>",
-            yaxis="y",
-        )
-    )
-
-    fig.update_layout(
-        height=320,
-        margin=dict(l=10, r=10, t=8, b=8),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=COR_TEXTO, family="Segoe UI, Arial, sans-serif"),
-        barmode="relative",
-        hovermode="x",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="left",
-            x=0.0,
-            bgcolor="rgba(255,255,255,0.82)",
-            bordercolor="rgba(16,36,62,0.08)",
-            borderwidth=1,
-            font=dict(size=11),
-        ),
-        xaxis=dict(
-            showgrid=True,
-            gridcolor="rgba(16,36,62,0.08)",
-            zeroline=False,
-            title=None,
-            showline=False,
-            tickfont=dict(color=COR_TEXTO_SUAVE),
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor="rgba(16,36,62,0.08)",
-            zeroline=False,
-            title=None,
-            showline=False,
-            tickfont=dict(color=COR_TEXTO_SUAVE),
-        ),
-        yaxis2=dict(
-            overlaying="y",
-            side="right",
-            showgrid=False,
-            zeroline=True,
-            zerolinecolor="rgba(16,36,62,0.18)",
-            title=None,
-            tickfont=dict(color=COR_TEXTO_SUAVE),
-            ticksuffix="%",
-        ),
-    )
-    return fig
-
-
 def build_special_comparison_df(key: str, by_key: dict[str, pd.DataFrame]) -> tuple[pd.DataFrame, pd.DataFrame]:
     if key != "inflacao12_m1yoy":
         return pd.DataFrame(), pd.DataFrame()
@@ -1415,12 +1289,6 @@ for idx in range(0, len(selected_keys), 2):
             m1_special_resolved = m1_special[
                 (m1_special["data"] >= dt_ini) & (m1_special["data"] <= dt_fim)
             ].copy()
-        pib_gap_special = build_pib_gap_special_df(key, by_key)
-        pib_gap_special_resolved = pd.DataFrame()
-        if not pib_gap_special.empty:
-            pib_gap_special_resolved = pib_gap_special[
-                (pib_gap_special["data"] >= dt_ini) & (pib_gap_special["data"] <= dt_fim)
-            ].copy()
 
         if compare_base100 and not serie_resolved.empty:
             serie_resolved = normalize_base_100(serie_resolved)
@@ -1431,20 +1299,13 @@ for idx in range(0, len(selected_keys), 2):
         if key == "inflacao12_m1yoy" and (not ipca_special.empty or not m1_special.empty):
             frames = [df for df in (ipca_special, m1_special) if not df.empty]
             display_source = pd.concat(frames, ignore_index=True) if frames else serie
-        elif key == "pib_efetivo_potencial_hiato" and not pib_gap_special.empty:
-            display_source = pib_gap_special
         else:
             display_source = serie
         available_min = format_br_date(display_source["data"].min()) if not display_source.empty else "-"
         available_max = format_br_date(display_source["data"].max()) if not display_source.empty else "-"
         periodicidade = fix_mojibake(str(meta.get("periodicidade") or ""))
         with cols[col_idx]:
-            if key == "inflacao12_m1yoy" and not ipca_special_resolved.empty:
-                metric_source = ipca_special_resolved
-            elif key == "pib_efetivo_potencial_hiato" and not pib_gap_special_resolved.empty:
-                metric_source = pib_gap_special_resolved[["data", "hiato_produto"]].rename(columns={"hiato_produto": "valor"})
-            else:
-                metric_source = serie_resolved
+            metric_source = ipca_special_resolved if key == "inflacao12_m1yoy" and not ipca_special_resolved.empty else serie_resolved
             latest_valid = metric_source.dropna(subset=["valor"]).sort_values("data")
             if latest_valid.empty:
                 value_html = "-"
@@ -1463,12 +1324,7 @@ for idx in range(0, len(selected_keys), 2):
                     pill_html += f'<span class="metric-pill {delta_css}">{delta_pct}</span>'
                 if not pill_html:
                     pill_html = '<span class="metric-pill metric-neutral">Sem variacao</span>'
-                if key == "inflacao12_m1yoy":
-                    metric_label = "Ultimo IPCA 12m"
-                elif key == "pib_efetivo_potencial_hiato":
-                    metric_label = "Ultimo hiato"
-                else:
-                    metric_label = "Ultimo valor"
+                metric_label = "Ultimo IPCA 12m" if key == "inflacao12_m1yoy" else "Ultimo valor"
 
             st.markdown(
                 f"""
@@ -1497,10 +1353,6 @@ for idx in range(0, len(selected_keys), 2):
                 if ipca_special_resolved.empty and m1_special_resolved.empty:
                     st.markdown('<div class="inline-alert">Sem dados disponiveis para este indicador.</div>', unsafe_allow_html=True)
                     continue
-            elif key == "pib_efetivo_potencial_hiato":
-                if pib_gap_special_resolved.empty:
-                    st.markdown('<div class="inline-alert">Sem dados disponiveis para este indicador.</div>', unsafe_allow_html=True)
-                    continue
             elif serie_resolved.empty:
                 continue
 
@@ -1509,8 +1361,6 @@ for idx in range(0, len(selected_keys), 2):
                     ipca_special_resolved,
                     m1_special_resolved,
                 )
-            elif key == "pib_efetivo_potencial_hiato":
-                fig = build_pib_effective_potential_gap_chart(pib_gap_special_resolved)
             else:
                 fig = build_indicator_chart(serie_resolved, chart_type, unit_label, series_key=key)
             st.plotly_chart(
