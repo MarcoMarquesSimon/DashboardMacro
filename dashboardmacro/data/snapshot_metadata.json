@@ -1,21 +1,21 @@
 {
-  "generated_at": "2026-04-16 11:35:49",
+  "generated_at": "2026-05-05 10:46:58",
   "macro_brasil": {
-    "updated_at": "2026-04-16 11:35:39",
-    "rows": 51268,
-    "indicators": 49,
-    "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\macro_brasil_snapshot.pkl"
+    "updated_at": "2026-05-05 10:46:37",
+    "rows": 51179,
+    "indicators": 48,
+    "path": "/home/runner/work/DashboardMacro/DashboardMacro/dashboardmacro/data/macro_brasil_snapshot.pkl"
   },
   "macro_eua": {
-    "updated_at": "2026-04-16 11:35:44",
-    "rows": 55221,
+    "updated_at": "2026-05-05 10:46:41",
+    "rows": 55284,
     "indicators": 17,
-    "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\macro_eua_snapshot.pkl"
+    "path": "/home/runner/work/DashboardMacro/DashboardMacro/dashboardmacro/data/macro_eua_snapshot.pkl"
   },
   "tesouro_direto": {
-    "updated_at": "2026-04-16 11:35:49",
-    "rows": 169958,
+    "updated_at": "2026-05-05 10:46:58",
+    "rows": 170558,
     "titles": 8,
-    "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\tesouro_direto_snapshot.pkl"
+    "path": "/home/runner/work/DashboardMacro/DashboardMacro/dashboardmacro/data/tesouro_direto_snapshot.pkl"
   }
 }
