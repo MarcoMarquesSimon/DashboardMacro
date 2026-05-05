@@ -28,6 +28,7 @@ COR_INFO_BORDA = "#C9DAF8"
 CASAS = 2
 BASE_DIR = Path(__file__).resolve().parents[1]
 SNAPSHOT_US_PATH = BASE_DIR / "data" / "macro_eua_snapshot.pkl"
+SNAPSHOT_US_CSV_PATH = BASE_DIR / "data" / "macro_eua_snapshot.csv.gz"
 DATA_PIPELINE_VERSION = "2026-04-15-v1"
 DEFAULT_FRED_API_KEY = "da9de0f64ae8f49db8bfc2b01d51c163"
 
@@ -323,11 +324,14 @@ def load_fred_panel(api_key: str, _version: str):
 
 @st.cache_data(show_spinner=False, persist="disk")
 def load_fred_snapshot_panel(_version: str, _snapshot_mtime: float):
-    if not SNAPSHOT_US_PATH.exists():
+    if not SNAPSHOT_US_CSV_PATH.exists() and not SNAPSHOT_US_PATH.exists():
         empty = pd.DataFrame(columns=["data", "valor", "key"])
         return pd.DataFrame(), empty, {}
 
-    df_long = pd.read_pickle(SNAPSHOT_US_PATH).copy()
+    if SNAPSHOT_US_CSV_PATH.exists():
+        df_long = pd.read_csv(SNAPSHOT_US_CSV_PATH, compression="gzip").copy()
+    else:
+        df_long = pd.read_pickle(SNAPSHOT_US_PATH).copy()
     if df_long.empty:
         return pd.DataFrame(), df_long, {}
 
@@ -340,7 +344,7 @@ def load_fred_snapshot_panel(_version: str, _snapshot_mtime: float):
 
     by_key = {}
     for key, serie in df_long.groupby("key", sort=False):
-        by_key[str(key)] = serie[["data", "valor"]].copy().reset_index(drop=True)
+        by_key[str(key)] = serie.copy().reset_index(drop=True)
 
     return catalog, df_long, by_key
 
@@ -569,10 +573,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-snapshot_mtime = SNAPSHOT_US_PATH.stat().st_mtime if SNAPSHOT_US_PATH.exists() else 0.0
+snapshot_mtime = (
+    SNAPSHOT_US_CSV_PATH.stat().st_mtime
+    if SNAPSHOT_US_CSV_PATH.exists()
+    else (SNAPSHOT_US_PATH.stat().st_mtime if SNAPSHOT_US_PATH.exists() else 0.0)
+)
 
 try:
-    if SNAPSHOT_US_PATH.exists():
+    if SNAPSHOT_US_CSV_PATH.exists() or SNAPSHOT_US_PATH.exists():
         catalog, df_long, by_key = load_fred_snapshot_panel(DATA_PIPELINE_VERSION, snapshot_mtime)
     else:
         catalog, df_long, by_key = load_fred_panel(DEFAULT_FRED_API_KEY, DATA_PIPELINE_VERSION)
@@ -601,6 +609,10 @@ if "fred_dt_ini_value" not in st.session_state:
     st.session_state["fred_dt_ini_value"] = pd.Timestamp("2000-01-01").date()
 if "fred_dt_fim_value" not in st.session_state:
     st.session_state["fred_dt_fim_value"] = pd.Timestamp.today().normalize().date()
+if "fred_dt_ini_input" not in st.session_state:
+    st.session_state["fred_dt_ini_input"] = st.session_state["fred_dt_ini_value"]
+if "fred_dt_fim_input" not in st.session_state:
+    st.session_state["fred_dt_fim_input"] = st.session_state["fred_dt_fim_value"]
 
 col_group, col_ind, col_period, col_start, col_end = st.columns([1, 1, 1, 1, 1], gap="small")
 
@@ -654,22 +666,12 @@ if st.session_state.get("fred_period_signature") != signature:
     st.session_state["fred_dt_fim_input"] = preset_fim.date()
     st.session_state["fred_period_signature"] = signature
 
-st.session_state["fred_dt_ini_input"] = st.session_state.get(
-    "fred_dt_ini_input",
-    st.session_state["fred_dt_ini_value"],
-)
-st.session_state["fred_dt_fim_input"] = st.session_state.get(
-    "fred_dt_fim_input",
-    st.session_state["fred_dt_fim_value"],
-)
-
 with col_start:
     st.markdown('<div class="filter-label">In&iacute;cio</div>', unsafe_allow_html=True)
     dt_ini_value = st.date_input(
         "Início",
         min_value=global_min.date(),
         max_value=global_max.date(),
-        value=st.session_state["fred_dt_ini_value"],
         key="fred_dt_ini_input",
         format="YYYY/MM/DD",
         label_visibility="collapsed",
@@ -681,7 +683,6 @@ with col_end:
         "Fim",
         min_value=global_min.date(),
         max_value=global_max.date(),
-        value=st.session_state["fred_dt_fim_value"],
         key="fred_dt_fim_input",
         format="YYYY/MM/DD",
         label_visibility="collapsed",
@@ -783,5 +784,5 @@ for idx in range(0, len(selected_keys), 2):
                 continue
 
             fig = build_indicator_chart(serie_resolved)
-            st.plotly_chart(fig, use_container_width=True, config={"displaylogo": False, "modeBarButtonsToRemove": ["toggleSpikelines"], "responsive": True})
+            st.plotly_chart(fig, width="stretch", config={"displaylogo": False, "modeBarButtonsToRemove": ["toggleSpikelines"], "responsive": True})
 

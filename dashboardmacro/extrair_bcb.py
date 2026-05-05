@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 from urllib.parse import quote
 
+import numpy as np
 import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
@@ -558,6 +559,45 @@ def _merge_monthly_series(left: pd.DataFrame, right: pd.DataFrame) -> pd.DataFra
     return merged[["data", "valor_left", "valor_right"]]
 
 
+def _quadratic_trend(values: np.ndarray) -> np.ndarray:
+    y = np.asarray(values, dtype=float)
+    mask = np.isfinite(y)
+    if mask.sum() < 3:
+        return np.full_like(y, np.nan, dtype=float)
+    x = np.arange(len(y), dtype=float)
+    coeffs = np.polyfit(x[mask], y[mask], 2)
+    return np.polyval(coeffs, x)
+
+
+def build_pib_potential_gap_frame(serie: pd.DataFrame) -> pd.DataFrame:
+    base = serie.copy()
+    if base.empty:
+        return pd.DataFrame(columns=["data", "valor", "valor_efetivo", "valor_potencial", "hiato_produto"])
+
+    base["data"] = pd.to_datetime(base["data"], errors="coerce")
+    base["valor"] = pd.to_numeric(base["valor"], errors="coerce")
+    base = base.dropna(subset=["data", "valor"]).sort_values("data").reset_index(drop=True)
+    if len(base) < 8:
+        return pd.DataFrame(columns=["data", "valor", "valor_efetivo", "valor_potencial", "hiato_produto"])
+
+    log_values = np.log(base["valor"].to_numpy(dtype=float))
+    trend_log = _quadratic_trend(log_values)
+    if not np.isfinite(trend_log).any():
+        return pd.DataFrame(columns=["data", "valor", "valor_efetivo", "valor_potencial", "hiato_produto"])
+
+    potencial = np.exp(trend_log)
+    hiato = ((base["valor"].to_numpy(dtype=float) / potencial) - 1.0) * 100.0
+    return pd.DataFrame(
+        {
+            "data": base["data"],
+            "valor": hiato,
+            "valor_efetivo": base["valor"].to_numpy(dtype=float),
+            "valor_potencial": potencial,
+            "hiato_produto": hiato,
+        }
+    ).replace([np.inf, -np.inf], np.nan).dropna(subset=["data"]).reset_index(drop=True)
+
+
 def _build_derived_series(meta: pd.Series, by_key: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     key = str(meta.get("key", "")).strip()
 
@@ -607,6 +647,17 @@ def _build_derived_series(meta: pd.Series, by_key: Dict[str, pd.DataFrame]) -> p
         merged["valor"] = merged["valor_left"] - merged["valor_right"]
         derived = merged[["data", "valor"]].copy()
         derived.attrs["message"] = "Serie comparativa calculada localmente a partir de M1 YoY e IPCA 12 meses."
+        return derived
+
+    if key == "pib_efetivo_potencial_hiato":
+        pib_dessaz = by_key.get("pib_dessaz")
+        if pib_dessaz is None or pib_dessaz.empty:
+            return _empty_series_with_meta(meta, "Dependencias ausentes para calcular o hiato do produto.")
+
+        derived = build_pib_potential_gap_frame(pib_dessaz)
+        if derived.empty:
+            return _empty_series_with_meta(meta, "Nao foi possivel calcular o PIB potencial e o hiato do produto.")
+        derived.attrs["message"] = "Serie derivada calculada localmente a partir do PIB dessazonalizado trimestral."
         return derived
 
     return _empty_series_with_meta(meta, "Serie sem codigo SGS e sem regra de derivacao configurada.")

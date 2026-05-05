@@ -166,11 +166,14 @@ URL = (
 )
 BASE_DIR = Path(__file__).resolve().parent
 TESOURO_SNAPSHOT_PATH = BASE_DIR / "data" / "tesouro_direto_snapshot.pkl"
+TESOURO_SNAPSHOT_CSV_PATH = BASE_DIR / "data" / "tesouro_direto_snapshot.csv.gz"
 
 
 @st.cache_data
 def carregar_dados() -> pd.DataFrame:
-    if TESOURO_SNAPSHOT_PATH.exists():
+    if TESOURO_SNAPSHOT_CSV_PATH.exists():
+        df = pd.read_csv(TESOURO_SNAPSHOT_CSV_PATH, compression="gzip", parse_dates=["Data Vencimento", "Data Base"])
+    elif TESOURO_SNAPSHOT_PATH.exists():
         df = pd.read_pickle(TESOURO_SNAPSHOT_PATH)
     else:
         df = dados_tesouro(URL)
@@ -196,10 +199,22 @@ def criar_nome_serie(df_base: pd.DataFrame) -> pd.DataFrame:
 
 def resumo_metrica(df_base: pd.DataFrame, metrica: str):
     base = df_base.sort_values("Data Base").copy()
+    if base.empty or metrica not in base.columns:
+        return pd.NA, pd.NA, pd.NA
+    base = base.dropna(subset=[metrica])
+    if base.empty:
+        return pd.NA, pd.NA, pd.NA
     valor_atual = base[metrica].iloc[-1]
     valor_min = base[metrica].min()
     valor_max = base[metrica].max()
     return valor_atual, valor_min, valor_max
+
+
+def formatar_data_segura(valor) -> str:
+    data = pd.to_datetime(valor, errors="coerce")
+    if pd.isna(data):
+        return "-"
+    return data.strftime("%d/%m/%Y")
 
 
 def adicionar_marcacoes_extremos(fig, df_plot: pd.DataFrame, metrica: str):
@@ -459,6 +474,10 @@ serie_global = (
     .sort_values("Data Base")
 )
 
+if serie_global.empty or serie_global[coluna_valor].dropna().empty:
+    st.warning("Nenhum dado válido encontrado para a métrica e intervalo selecionados.")
+    st.stop()
+
 valor_atual, valor_min, valor_max = resumo_metrica(serie_global, coluna_valor)
 
 col_principal, col_kpis = st.columns([4.2, 0.9])
@@ -483,7 +502,7 @@ with col_principal:
     )
 
     fig_linha = estilizar_layout_plotly(fig_linha, "Título • Vencimento", altura=820)
-    st.plotly_chart(fig_linha, use_container_width=True)
+    st.plotly_chart(fig_linha, width="stretch")
 
 with col_kpis:
     st.markdown(
@@ -502,7 +521,7 @@ with col_kpis:
         <div class="kpi-card">
             <div class="kpi-title">PU</div>
             <div class="kpi-value">R$ {formatar_numero(pu_medio)}</div>
-            <div class="kpi-sub">{ultima_data.strftime("%d/%m/%Y")}</div>
+            <div class="kpi-sub">{formatar_data_segura(ultima_data)}</div>
         </div>
         """,
         unsafe_allow_html=True,

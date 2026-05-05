@@ -17,8 +17,11 @@ DATA_DIR = BASE_DIR / "data"
 CODES_PATH = DATA_DIR / "codes.csv"
 CACHE_DIR = BASE_DIR / ".cache_sgs"
 BR_SNAPSHOT_PATH = DATA_DIR / "macro_brasil_snapshot.pkl"
+BR_SNAPSHOT_CSV_PATH = DATA_DIR / "macro_brasil_snapshot.csv.gz"
 US_SNAPSHOT_PATH = DATA_DIR / "macro_eua_snapshot.pkl"
+US_SNAPSHOT_CSV_PATH = DATA_DIR / "macro_eua_snapshot.csv.gz"
 TESOURO_SNAPSHOT_PATH = DATA_DIR / "tesouro_direto_snapshot.pkl"
+TESOURO_SNAPSHOT_CSV_PATH = DATA_DIR / "tesouro_direto_snapshot.csv.gz"
 META_PATH = DATA_DIR / "snapshot_metadata.json"
 FRED_API_KEY = "da9de0f64ae8f49db8bfc2b01d51c163"
 TESOURO_URL = (
@@ -52,6 +55,12 @@ def normalize_frame(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def write_snapshot(df: pd.DataFrame, pickle_path: Path, csv_path: Path) -> None:
+    pickle_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_pickle(pickle_path)
+    df.to_csv(csv_path, index=False, compression="gzip")
+
+
 def update_macro_brasil() -> dict:
     catalog = load_indicators_table(CODES_PATH)
     df_long, _ = fetch_all_indicators(
@@ -62,39 +71,36 @@ def update_macro_brasil() -> dict:
         timeout=30,
     )
     df_long = normalize_frame(df_long)
-    BR_SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df_long.to_pickle(BR_SNAPSHOT_PATH)
+    write_snapshot(df_long, BR_SNAPSHOT_PATH, BR_SNAPSHOT_CSV_PATH)
     return {
         "updated_at": iso_now(),
         "rows": int(len(df_long)),
         "indicators": int(df_long["key"].nunique()) if "key" in df_long.columns and not df_long.empty else 0,
-        "path": str(BR_SNAPSHOT_PATH),
+        "path": str(BR_SNAPSHOT_CSV_PATH),
     }
 
 
 def update_macro_eua() -> dict:
     df_long, _, catalog = fetch_all_fred_indicators(FRED_API_KEY)
     df_long = normalize_frame(df_long)
-    US_SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df_long.to_pickle(US_SNAPSHOT_PATH)
+    write_snapshot(df_long, US_SNAPSHOT_PATH, US_SNAPSHOT_CSV_PATH)
     return {
         "updated_at": iso_now(),
         "rows": int(len(df_long)),
         "indicators": int(len(catalog)),
-        "path": str(US_SNAPSHOT_PATH),
+        "path": str(US_SNAPSHOT_CSV_PATH),
     }
 
 
 def update_tesouro_direto() -> dict:
     df = dados_tesouro(TESOURO_URL)
     df = df.sort_values(["Tipo Titulo", "Data Vencimento", "Data Base"]).reset_index(drop=True)
-    TESOURO_SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df.to_pickle(TESOURO_SNAPSHOT_PATH)
+    write_snapshot(df, TESOURO_SNAPSHOT_PATH, TESOURO_SNAPSHOT_CSV_PATH)
     return {
         "updated_at": iso_now(),
         "rows": int(len(df)),
         "titles": int(df["Tipo Titulo"].nunique()) if "Tipo Titulo" in df.columns and not df.empty else 0,
-        "path": str(TESOURO_SNAPSHOT_PATH),
+        "path": str(TESOURO_SNAPSHOT_CSV_PATH),
     }
 
 
