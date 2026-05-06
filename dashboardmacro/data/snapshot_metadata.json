@@ -1,19 +1,19 @@
 {
-  "generated_at": "2026-05-05 10:46:58",
+  "generated_at": "2026-05-06 11:06:12",
   "macro_brasil": {
-    "updated_at": "2026-05-05 10:46:37",
-    "rows": 51179,
-    "indicators": 48,
+    "updated_at": "2026-05-06 11:05:43",
+    "rows": 51352,
+    "indicators": 49,
     "path": "/home/runner/work/DashboardMacro/DashboardMacro/dashboardmacro/data/macro_brasil_snapshot.pkl"
   },
   "macro_eua": {
-    "updated_at": "2026-05-05 10:46:41",
-    "rows": 55284,
+    "updated_at": "2026-05-06 11:05:48",
+    "rows": 55287,
     "indicators": 17,
     "path": "/home/runner/work/DashboardMacro/DashboardMacro/dashboardmacro/data/macro_eua_snapshot.pkl"
   },
   "tesouro_direto": {
-    "updated_at": "2026-05-05 10:46:58",
+    "updated_at": "2026-05-06 11:06:12",
     "rows": 170558,
     "titles": 8,
     "path": "/home/runner/work/DashboardMacro/DashboardMacro/dashboardmacro/data/tesouro_direto_snapshot.pkl"
