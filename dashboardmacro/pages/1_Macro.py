@@ -33,13 +33,13 @@ CODES_PATH = BASE_DIR / "data" / "codes.csv"
 SNAPSHOT_BR_PATH = BASE_DIR / "data" / "macro_brasil_snapshot.pkl"
 SNAPSHOT_BR_CSV_PATH = BASE_DIR / "data" / "macro_brasil_snapshot.csv.gz"
 CACHE_DIR = BASE_DIR / ".cache_sgs"
-DATA_PIPELINE_VERSION = "2026-05-05-v3"
+DATA_PIPELINE_VERSION = "2026-05-07-v1"
 LEAD_MESES_M1 = 12
 DERIVED_DEPENDENCIES = {
     "saldo_tc_idp_12m": ["transacoes_correntes", "ide_pais_12m"],
     "m1_var_12m": ["agregado_monetario_m1"],
     "inflacao12_m1yoy": ["m1_var_12m", "ipca_12_meses", "agregado_monetario_m1"],
-    "pib_efetivo_potencial_hiato": ["pib_dessaz"],
+    "pib_efetivo_potencial_hiato": ["pib_r"],
 }
 
 PERIOD_OPTIONS = ["6M", "1Y", "3Y", "5Y", "10Y", "YTD", "Tudo"]
@@ -445,24 +445,35 @@ def recompute_visual_derived_series(by_key: dict[str, pd.DataFrame]) -> dict[str
                 merged["valor"] = merged["ipca"].combine_first(merged["m1_lead"])
                 out["inflacao12_m1yoy"] = merged[["data", "valor"]].dropna(subset=["valor"]).reset_index(drop=True)
 
-    pib_dessaz = out.get("pib_dessaz", pd.DataFrame(columns=["data", "valor"])).copy()
-    if not pib_dessaz.empty:
-        gap_df = build_pib_potential_gap_frame(pib_dessaz)
+    pib_base = out.get("pib_r", pd.DataFrame(columns=["data", "valor"])).copy()
+    if not pib_base.empty:
+        gap_df = build_pib_potential_gap_frame(pib_base)
         if not gap_df.empty:
             out["pib_efetivo_potencial_hiato"] = gap_df
 
     return out
 
 
-def _quadratic_trend(values: np.ndarray) -> np.ndarray:
+def _quadratic_trend(values: np.ndarray, window: int = 86, min_points: int = 24) -> np.ndarray:
     y = np.asarray(values, dtype=float)
-    mask = np.isfinite(y)
-    if mask.sum() < 3:
-        return np.full_like(y, np.nan, dtype=float)
+    n = len(y)
+    out = np.full(n, np.nan, dtype=float)
+    if n < 3:
+        return out
 
-    x = np.arange(len(y), dtype=float)
-    coeffs = np.polyfit(x[mask], y[mask], 2)
-    return np.polyval(coeffs, x)
+    for i in range(n):
+        start = max(0, i - window + 1)
+        y_slice = y[start : i + 1]
+        mask = np.isfinite(y_slice)
+        if mask.sum() < min_points:
+            continue
+
+        # Quadratic trend estimated on rolling window, predicted at current endpoint.
+        x = np.linspace(-1.0, 1.0, len(y_slice), dtype=float)
+        coeffs = np.polyfit(x[mask], y_slice[mask], 2)
+        out[i] = np.polyval(coeffs, x[-1])
+
+    return out
 
 
 def build_pib_potential_gap_frame(serie: pd.DataFrame) -> pd.DataFrame:
@@ -1073,15 +1084,19 @@ def build_pib_effective_potential_gap_chart(serie: pd.DataFrame) -> go.Figure:
         return fig
 
     bars = df_plot.dropna(subset=["hiato_produto"]).copy()
+    hiato_abs_max = 0.0
     if not bars.empty:
+        hiato_abs_max = float(np.nanmax(np.abs(bars["hiato_produto"].to_numpy(dtype=float))))
+        bar_colors = np.where(bars["hiato_produto"] >= 0, COR_POSITIVA, COR_NEGATIVA)
         fig.add_bar(
             x=bars["data"],
             y=bars["hiato_produto"],
             name="Hiato",
             yaxis="y2",
-            marker_color=np.where(bars["hiato_produto"] >= 0, COR_POSITIVA, COR_NEGATIVA),
+            marker_color=bar_colors,
             marker_line_width=0,
-            opacity=0.75,
+            opacity=0.32,
+            width=22 * 24 * 60 * 60 * 1000,
             hovertemplate="%{x|%d/%m/%Y}<br>Hiato: %{y:,.2f}%<extra></extra>",
         )
 
@@ -1114,19 +1129,19 @@ def build_pib_effective_potential_gap_chart(serie: pd.DataFrame) -> go.Figure:
         )
 
     fig.update_layout(
-        height=310,
+        height=330,
         margin=dict(l=10, r=10, t=8, b=8),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color=COR_TEXTO, family="Segoe UI, Arial, sans-serif"),
-        barmode="relative",
+        barmode="overlay",
         hovermode="x unified",
         legend=dict(
             orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1.0,
+            yanchor="top",
+            y=0.98,
+            xanchor="left",
+            x=0.01,
             bgcolor="rgba(255,255,255,0.82)",
             bordercolor="rgba(16,36,62,0.08)",
             borderwidth=1,
@@ -1138,26 +1153,34 @@ def build_pib_effective_potential_gap_chart(serie: pd.DataFrame) -> go.Figure:
             zeroline=False,
             title=None,
             showline=False,
+            tickformat="%b %Y",
             tickfont=dict(color=COR_TEXTO_SUAVE),
         ),
         yaxis=dict(
-            showgrid=False,
+            showgrid=True,
+            gridcolor="rgba(16,36,62,0.08)",
             zeroline=False,
             title=None,
+            tickformat="~s",
             tickfont=dict(color=COR_TEXTO_SUAVE),
         ),
         yaxis2=dict(
             overlaying="y",
             side="right",
-            showgrid=True,
-            gridcolor="rgba(16,36,62,0.08)",
+            showgrid=False,
             zeroline=True,
             zerolinecolor="rgba(16,36,62,0.16)",
             title="Hiato (%)",
             tickfont=dict(color=COR_TEXTO_SUAVE),
             title_font=dict(color=COR_TEXTO_SUAVE, size=12),
+            tickformat=".1f",
+            ticksuffix="%",
         ),
     )
+
+    if hiato_abs_max > 0:
+        upper = max(6.0, round(hiato_abs_max * 1.25, 1))
+        fig.update_layout(yaxis2=dict(range=[-upper, upper]))
     return fig
 
 
@@ -1219,7 +1242,7 @@ def build_special_comparison_df(key: str, by_key: dict[str, pd.DataFrame]) -> tu
 
 def load_hiato_fallback_series(_codes_mtime: float, _version: str) -> pd.DataFrame:
     _, dep_by_key = load_macro_live_subset_data(
-        ("pib_dessaz",),
+        ("pib_r",),
         None,
         None,
         _version,
@@ -1238,7 +1261,7 @@ def load_hiato_fallback_series(_codes_mtime: float, _version: str) -> pd.DataFra
     return serie
 
 
-def load_pib_dessaz_base_series(
+def load_pib_base_series(
     dt_ini: pd.Timestamp,
     dt_fim: pd.Timestamp,
     _codes_mtime: float,
@@ -1248,31 +1271,31 @@ def load_pib_dessaz_base_series(
     if SNAPSHOT_BR_CSV_PATH.exists() or SNAPSHOT_BR_PATH.exists():
         snapshot_df = _read_snapshot_frame(SNAPSHOT_BR_CSV_PATH, SNAPSHOT_BR_PATH)
         if not snapshot_df.empty and "key" in snapshot_df.columns:
-            serie = snapshot_df[snapshot_df["key"].astype(str) == "pib_dessaz"].copy()
+            serie = snapshot_df[snapshot_df["key"].astype(str) == "pib_r"].copy()
 
     serie = clean_indicator_series(serie)
     if not serie.empty:
         return serie
 
     _, dep_by_key = load_macro_live_subset_data(
-        ("pib_dessaz",),
+        ("pib_r",),
         None,
         None,
         _version,
         _codes_mtime,
     )
-    serie = clean_indicator_series(dep_by_key.get("pib_dessaz", pd.DataFrame()).copy())
+    serie = clean_indicator_series(dep_by_key.get("pib_r", pd.DataFrame()).copy())
     if not serie.empty:
         return serie
 
     _, dep_by_key = load_macro_live_subset_data(
-        ("pib_dessaz",),
+        ("pib_r",),
         dt_ini.strftime("%Y-%m-%d"),
         dt_fim.strftime("%Y-%m-%d"),
         _version,
         _codes_mtime,
     )
-    return clean_indicator_series(dep_by_key.get("pib_dessaz", pd.DataFrame()).copy())
+    return clean_indicator_series(dep_by_key.get("pib_r", pd.DataFrame()).copy())
 
 
 def load_live_fallback_series(
@@ -1322,7 +1345,7 @@ def resolve_hiato_series(
     _codes_mtime: float,
     _version: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame, str | None]:
-    pib_base = load_pib_dessaz_base_series(dt_ini, dt_fim, _codes_mtime, _version)
+    pib_base = load_pib_base_series(dt_ini, dt_fim, _codes_mtime, _version)
     serie = build_pib_potential_gap_frame(pib_base)
     serie = clean_indicator_series(serie)
 
@@ -1331,7 +1354,7 @@ def resolve_hiato_series(
 
     serie_resolved, alert_message = resolve_indicator_window(
         serie,
-        "trimestral",
+        "mensal",
         dt_ini,
         dt_fim,
         "Mais proximo disponivel",
@@ -1611,7 +1634,7 @@ for idx in range(0, len(selected_keys), 2):
         available_max = format_br_date(display_source["data"].max()) if not display_source.empty else "-"
         periodicidade = fix_mojibake(str(meta.get("periodicidade") or ""))
         if key == "pib_efetivo_potencial_hiato":
-            periodicidade = "trimestral"
+            periodicidade = "mensal"
         with cols[col_idx]:
             metric_source = ipca_special_resolved if key == "inflacao12_m1yoy" and not ipca_special_resolved.empty else serie_resolved
             latest_valid = metric_source.dropna(subset=["valor"]).sort_values("data")
@@ -1632,7 +1655,12 @@ for idx in range(0, len(selected_keys), 2):
                     pill_html += f'<span class="metric-pill {delta_css}">{delta_pct}</span>'
                 if not pill_html:
                     pill_html = '<span class="metric-pill metric-neutral">Sem variacao</span>'
-                metric_label = "Ultimo IPCA 12m" if key == "inflacao12_m1yoy" else "Ultimo valor"
+                if key == "inflacao12_m1yoy":
+                    metric_label = "Ultimo IPCA 12m"
+                elif key == "pib_efetivo_potencial_hiato":
+                    metric_label = "Ultimo hiato"
+                else:
+                    metric_label = "Ultimo valor"
 
             st.markdown(
                 f"""
