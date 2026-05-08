@@ -1,21 +1,21 @@
 {
-  "generated_at": "2026-05-05 11:23:25",
+  "generated_at": "2026-05-08 10:24:52",
   "macro_brasil": {
-    "updated_at": "2026-05-05 11:23:25",
-    "rows": 48837,
+    "updated_at": "2026-05-08 10:24:29",
+    "rows": 51606,
     "indicators": 51,
-    "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\macro_brasil_snapshot.csv.gz"
+    "path": "/home/runner/work/DashboardMacro/DashboardMacro/dashboardmacro/data/macro_brasil_snapshot.csv.gz"
   },
   "macro_eua": {
-    "updated_at": "2026-05-05 11:23:25",
-    "rows": 55221,
+    "updated_at": "2026-05-08 10:24:31",
+    "rows": 55293,
     "indicators": 17,
-    "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\macro_eua_snapshot.csv.gz"
+    "path": "/home/runner/work/DashboardMacro/DashboardMacro/dashboardmacro/data/macro_eua_snapshot.csv.gz"
   },
   "tesouro_direto": {
-    "updated_at": "2026-05-05 11:23:25",
-    "rows": 169958,
+    "updated_at": "2026-05-08 10:24:52",
+    "rows": 170558,
     "titles": 8,
-    "path": "C:\\Users\\usuar\\Downloads\\Programming\\DashboardMacro_Marco-Codex\\dashboardmacro\\data\\tesouro_direto_snapshot.csv.gz"
+    "path": "/home/runner/work/DashboardMacro/DashboardMacro/dashboardmacro/data/tesouro_direto_snapshot.csv.gz"
   }
 }
