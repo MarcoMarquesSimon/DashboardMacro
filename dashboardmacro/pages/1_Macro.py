@@ -454,25 +454,24 @@ def recompute_visual_derived_series(by_key: dict[str, pd.DataFrame]) -> dict[str
     return out
 
 
-def _quadratic_trend(values: np.ndarray, window: int = 86, min_points: int = 24) -> np.ndarray:
+def _hp_filter_trend(values: np.ndarray, lamb: float = 129600.0) -> np.ndarray:
     y = np.asarray(values, dtype=float)
-    n = len(y)
-    out = np.full(n, np.nan, dtype=float)
-    if n < 3:
-        return out
+    mask = np.isfinite(y)
+    if mask.sum() < 8:
+        return np.full_like(y, np.nan, dtype=float)
 
-    for i in range(n):
-        start = max(0, i - window + 1)
-        y_slice = y[start : i + 1]
-        mask = np.isfinite(y_slice)
-        if mask.sum() < min_points:
-            continue
+    y_fit = y[mask]
+    n = len(y_fit)
+    eye = np.eye(n)
+    d2 = np.zeros((n - 2, n))
+    for i in range(n - 2):
+        d2[i, i] = 1.0
+        d2[i, i + 1] = -2.0
+        d2[i, i + 2] = 1.0
+    trend_fit = np.linalg.solve(eye + lamb * (d2.T @ d2), y_fit)
 
-        # Quadratic trend estimated on rolling window, predicted at current endpoint.
-        x = np.linspace(-1.0, 1.0, len(y_slice), dtype=float)
-        coeffs = np.polyfit(x[mask], y_slice[mask], 2)
-        out[i] = np.polyval(coeffs, x[-1])
-
+    out = np.full_like(y, np.nan, dtype=float)
+    out[mask] = trend_fit
     return out
 
 
@@ -488,7 +487,7 @@ def build_pib_potential_gap_frame(serie: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=["data", "valor", "valor_efetivo", "valor_potencial", "hiato_produto"])
 
     log_values = np.log(base["valor"].to_numpy(dtype=float))
-    trend_log = _quadratic_trend(log_values)
+    trend_log = _hp_filter_trend(log_values, lamb=129600.0)
     if not np.isfinite(trend_log).any():
         return pd.DataFrame(columns=["data", "valor", "valor_efetivo", "valor_potencial", "hiato_produto"])
 
@@ -1230,7 +1229,7 @@ def build_pib_effective_potential_gap_chart(serie: pd.DataFrame) -> go.Figure:
                 y=potencial["valor_potencial"],
                 mode="lines",
                 name="PIB potencial",
-                line=dict(color="#D67A2C", width=2.3),
+                line=dict(color="#E07A2F", width=2.3),
                 hovertemplate="%{x|%d/%m/%Y}<br>PIB potencial: %{y:,.2f}<extra></extra>",
                 yaxis="y",
             )
@@ -1603,6 +1602,20 @@ if st.session_state.get("macro_period_signature") != signature:
     st.session_state["macro_dt_ini_input"] = preset_ini.date()
     st.session_state["macro_dt_fim_input"] = preset_fim.date()
     st.session_state["macro_period_signature"] = signature
+
+# Garante que os valores default dos widgets de data sempre respeitem o intervalo atual.
+safe_ini = pd.to_datetime(st.session_state.get("macro_dt_ini_input"), errors="coerce")
+safe_fim = pd.to_datetime(st.session_state.get("macro_dt_fim_input"), errors="coerce")
+if pd.isna(safe_ini):
+    safe_ini = global_min
+if pd.isna(safe_fim):
+    safe_fim = global_max
+safe_ini = min(max(safe_ini.normalize(), global_min), global_max)
+safe_fim = min(max(safe_fim.normalize(), global_min), global_max)
+if safe_ini > safe_fim:
+    safe_ini, safe_fim = global_min, global_max
+st.session_state["macro_dt_ini_input"] = safe_ini.date()
+st.session_state["macro_dt_fim_input"] = safe_fim.date()
 
 with col_start:
     st.markdown('<div class="filter-label">In&iacute;cio</div>', unsafe_allow_html=True)
