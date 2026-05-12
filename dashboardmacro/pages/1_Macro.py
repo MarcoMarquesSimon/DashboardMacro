@@ -662,6 +662,71 @@ def load_macro_live_subset_data(
     return df_long, cleaned_by_key
 
 
+def has_large_monthly_gap(serie: pd.DataFrame, min_consecutive_missing: int = 24) -> bool:
+    if serie is None or serie.empty or "data" not in serie.columns:
+        return False
+
+    tmp = serie.copy()
+    tmp["data"] = pd.to_datetime(tmp["data"], errors="coerce")
+    tmp = tmp.dropna(subset=["data"]).sort_values("data").reset_index(drop=True)
+    if tmp.empty:
+        return False
+
+    month_index = pd.period_range(tmp["data"].min().to_period("M"), tmp["data"].max().to_period("M"), freq="M")
+    observed = set(tmp["data"].dt.to_period("M"))
+    run = 0
+    for month in month_index:
+        if month in observed:
+            run = 0
+        else:
+            run += 1
+            if run >= min_consecutive_missing:
+                return True
+    return False
+
+
+def refresh_m1_related_keys_if_needed(
+    by_key: dict[str, pd.DataFrame],
+    _version: str,
+    _codes_mtime: float,
+) -> dict[str, pd.DataFrame]:
+    m1_snapshot = by_key.get("agregado_monetario_m1", pd.DataFrame())
+    if not has_large_monthly_gap(m1_snapshot, min_consecutive_missing=24):
+        return by_key
+
+    catalog = load_macro_catalog(_version, _codes_mtime)
+    repair_keys = ["agregado_monetario_m1", "m1_var_12m", "ipca_12_meses", "inflacao12_m1yoy"]
+    subset = catalog[catalog["key"].astype(str).isin(repair_keys)].copy()
+    if subset.empty:
+        return by_key
+
+    _, live_by_key = fetch_all_indicators(
+        subset,
+        use_disk_cache=False,
+        cache_dir=CACHE_DIR,
+        ttl_hours=0,
+        timeout=30,
+        inicio=None,
+        fim=None,
+    )
+    live_by_key = recompute_visual_derived_series({str(k): v.copy() for k, v in live_by_key.items()})
+
+    repaired = {str(k): v.copy() for k, v in by_key.items()}
+    for key in repair_keys:
+        serie = live_by_key.get(key, pd.DataFrame()).copy()
+        if not serie.empty:
+            serie["data"] = pd.to_datetime(serie["data"], errors="coerce")
+            if "valor" in serie.columns:
+                serie["valor"] = pd.to_numeric(serie["valor"], errors="coerce")
+            for col in ("valor_efetivo", "valor_potencial", "hiato_produto"):
+                if col in serie.columns:
+                    serie[col] = pd.to_numeric(serie[col], errors="coerce")
+            serie = serie.dropna(subset=["data"]).sort_values("data").reset_index(drop=True)
+            repaired[key] = serie
+
+    return repaired
+
+
 @st.cache_data(show_spinner=False, persist="disk")
 def load_macro_snapshot_panel(_version: str, _snapshot_mtime: float):
     if not SNAPSHOT_BR_CSV_PATH.exists() and not SNAPSHOT_BR_PATH.exists():
@@ -687,6 +752,20 @@ def load_macro_snapshot_panel(_version: str, _snapshot_mtime: float):
     by_key = {}
     for key, serie in df_long.groupby("key", sort=False):
         by_key[str(key)] = serie.copy().reset_index(drop=True)
+
+    codes_mtime = CODES_PATH.stat().st_mtime if CODES_PATH.exists() else 0.0
+    by_key = refresh_m1_related_keys_if_needed(by_key, _version, codes_mtime)
+
+    frames = []
+    for key, serie in by_key.items():
+        if serie.empty:
+            continue
+        tmp = serie.copy()
+        tmp["key"] = str(key)
+        frames.append(tmp)
+    if frames:
+        df_long = pd.concat(frames, ignore_index=True)
+        df_long = df_long.dropna(subset=["data"]).sort_values(["key", "data"]).reset_index(drop=True)
 
     return df_long, by_key
 
@@ -901,6 +980,32 @@ def simplify_display_series(serie: pd.DataFrame, max_points: int = 320) -> pd.Da
     return simplified.drop_duplicates(subset=["data"]).reset_index(drop=True)
 
 
+def insert_line_breaks_for_gaps(serie: pd.DataFrame, max_gap_days: int = 45) -> pd.DataFrame:
+    if serie.empty:
+        return serie
+    tmp = serie.copy()
+    tmp["data"] = pd.to_datetime(tmp["data"], errors="coerce")
+    tmp = tmp.dropna(subset=["data"]).sort_values("data").reset_index(drop=True)
+    if len(tmp) < 2:
+        return tmp
+
+    rows = [tmp.iloc[0].copy()]
+    for i in range(1, len(tmp)):
+        prev = tmp.iloc[i - 1]
+        curr = tmp.iloc[i]
+        gap_days = (curr["data"] - prev["data"]).days
+        if gap_days > max_gap_days:
+            gap_row = curr.copy()
+            gap_row["data"] = prev["data"] + pd.Timedelta(days=1)
+            if "valor" in gap_row.index:
+                gap_row["valor"] = np.nan
+            rows.append(gap_row)
+        rows.append(curr.copy())
+
+    out = pd.DataFrame(rows).reset_index(drop=True)
+    return out
+
+
 def build_indicator_chart(
     serie: pd.DataFrame,
     chart_type: str,
@@ -915,6 +1020,7 @@ def build_indicator_chart(
     fig = go.Figure()
 
     if series_key == "m1_var_12m":
+        df_plot = insert_line_breaks_for_gaps(df_plot, max_gap_days=45)
         segments = list(_line_segments(df_plot))
         if not segments and not df_plot.empty:
             segments = [(df_plot, COR_POSITIVA if float(df_plot["valor"].iloc[-1]) >= 0 else COR_NEGATIVA)]
@@ -995,6 +1101,8 @@ def build_inflation_vs_m1_chart(
     fig = go.Figure()
     ipca_plot = simplify_display_series(ipca_series.dropna(subset=["data", "valor"]).sort_values("data").copy())
     m1_plot = simplify_display_series(m1_series.dropna(subset=["data", "valor"]).sort_values("data").copy())
+    ipca_plot = insert_line_breaks_for_gaps(ipca_plot, max_gap_days=45)
+    m1_plot = insert_line_breaks_for_gaps(m1_plot, max_gap_days=45)
 
     fig.add_trace(
         go.Scatter(

@@ -65,9 +65,9 @@ def update_macro_brasil() -> dict:
     catalog = load_indicators_table(CODES_PATH)
     df_long, _ = fetch_all_indicators(
         catalog,
-        use_disk_cache=True,
+        use_disk_cache=False,
         cache_dir=CACHE_DIR,
-        ttl_hours=12,
+        ttl_hours=0,
         timeout=30,
     )
     df_long = normalize_frame(df_long)
