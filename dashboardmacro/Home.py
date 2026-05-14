@@ -313,12 +313,9 @@ def estilizar_layout_plotly(fig, titulo_legenda: str, altura: int = 780):
             font=dict(size=18, color=COR_TEXTO),
         ),
         legend=dict(
-            title=dict(
-                text=titulo_legenda,
-                font=dict(size=12, color=COR_TEXTO),
-            ),
-            font=dict(size=10, color=COR_TEXTO),
-            bgcolor="rgba(255,255,255,0.92)",
+            title=dict(text=""),
+            font=dict(size=9, color=COR_TEXTO),
+            bgcolor="rgba(255,255,255,0.84)",
             bordercolor="rgba(16,36,62,0.10)",
             borderwidth=1,
             orientation="h",
@@ -326,11 +323,12 @@ def estilizar_layout_plotly(fig, titulo_legenda: str, altura: int = 780):
             y=1.01,
             xanchor="left",
             x=0,
+            traceorder="normal",
             itemclick="toggleothers",
             itemdoubleclick="toggle",
         ),
         height=altura,
-        margin=dict(l=10, r=10, t=140, b=10),
+        margin=dict(l=10, r=10, t=118, b=10),
     )
 
     fig.update_xaxes(
@@ -483,11 +481,13 @@ valor_atual, valor_min, valor_max = resumo_metrica(serie_global, coluna_valor)
 col_principal, col_kpis = st.columns([4.2, 0.9])
 
 with col_principal:
+    ordem_series = serie_plot["Nome Serie"].drop_duplicates().tolist()
     fig_linha = px.line(
         serie_plot,
         x="Data Base",
         y=coluna_valor,
         color="Nome Serie",
+        category_orders={"Nome Serie": ordem_series},
         color_discrete_sequence=PALETA_GRAFICOS,
         title=f"Evolução de {coluna_valor}",
         render_mode="svg",
@@ -502,6 +502,9 @@ with col_principal:
     )
 
     fig_linha = estilizar_layout_plotly(fig_linha, "Título • Vencimento", altura=820)
+    fig_linha.update_traces(
+        hovertemplate="%{fullData.name}<br>Data: %{x|%d/%m/%Y}<br>Valor: %{y:.2f}<extra></extra>"
+    )
     st.plotly_chart(fig_linha, width="stretch")
 
 with col_kpis:
