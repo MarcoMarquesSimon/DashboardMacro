@@ -10,6 +10,7 @@ from urllib3.util.retry import Retry
 
 
 FRED_SERIES_URL = "https://api.stlouisfed.org/fred/series/observations"
+FRED_SERIES_META_URL = "https://api.stlouisfed.org/fred/series"
 
 FRED_INDICATORS = [
     {"id": "CPIAUCSL", "key": "cpi", "indicador": "CPI", "descricao": "Indice de Precos ao Consumidor (inflacao cheia)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "indice", "tipo_grafico": "linhas"},
@@ -87,20 +88,129 @@ def _fetch_one_series(session: requests.Session, series_id: str, api_key: str, t
     return out
 
 
+def _fetch_one_series_with_params(
+    session: requests.Session,
+    series_id: str,
+    api_key: str,
+    *,
+    frequency: str | None = None,
+    aggregation_method: str | None = None,
+    timeout: int = 30,
+) -> pd.DataFrame:
+    params = {
+        "series_id": series_id,
+        "api_key": api_key,
+        "file_type": "json",
+        "sort_order": "asc",
+    }
+    if frequency:
+        params["frequency"] = frequency
+    if aggregation_method:
+        params["aggregation_method"] = aggregation_method
+
+    response = session.get(FRED_SERIES_URL, params=params, timeout=timeout)
+    response.raise_for_status()
+    payload = response.json()
+    observations = payload.get("observations", [])
+    if not observations:
+        return pd.DataFrame(columns=["data", "valor"])
+
+    df = pd.DataFrame(observations)
+    if "date" not in df.columns or "value" not in df.columns:
+        return pd.DataFrame(columns=["data", "valor"])
+
+    out = pd.DataFrame(
+        {
+            "data": pd.to_datetime(df["date"], errors="coerce"),
+            "valor": pd.to_numeric(df["value"].replace(".", pd.NA), errors="coerce"),
+        }
+    )
+    out = out.dropna(subset=["data", "valor"]).sort_values("data").reset_index(drop=True)
+    return out
+
+
+def fetch_series_variant(
+    api_key: str,
+    series_id: str,
+    *,
+    frequency: str | None = None,
+    aggregation_method: str = "avg",
+) -> pd.DataFrame:
+    session = _make_session()
+    try:
+        return _fetch_one_series_with_params(
+            session,
+            series_id,
+            api_key,
+            frequency=frequency,
+            aggregation_method=aggregation_method if frequency else None,
+        )
+    finally:
+        session.close()
+
+
+def _fetch_series_metadata(session: requests.Session, series_id: str, api_key: str, timeout: int = 30) -> dict:
+    response = session.get(
+        FRED_SERIES_META_URL,
+        params={
+            "series_id": series_id,
+            "api_key": api_key,
+            "file_type": "json",
+        },
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    series_list = payload.get("seriess", [])
+    if not series_list:
+        return {}
+    return dict(series_list[0])
+
+
+def _normalize_fred_frequency(meta: dict, fallback: str) -> str:
+    freq = str(meta.get("frequency_short") or meta.get("frequency") or fallback or "").strip().lower()
+    mapping = {
+        "d": "diaria",
+        "w": "semanal",
+        "bw": "quinzenal",
+        "m": "mensal",
+        "q": "trimestral",
+        "sa": "semestral",
+        "a": "anual",
+        "daily": "diaria",
+        "weekly": "semanal",
+        "biweekly": "quinzenal",
+        "monthly": "mensal",
+        "quarterly": "trimestral",
+        "semiannual": "semestral",
+        "annual": "anual",
+    }
+    return mapping.get(freq, freq or str(fallback or "").strip().lower())
+
+
 def get_fred_data(api_key: str) -> Dict[str, pd.DataFrame]:
     session = _make_session()
     dfs_dict: Dict[str, pd.DataFrame] = {}
+    meta_dict: Dict[str, dict] = {}
     try:
         for meta in FRED_INDICATORS:
-            dfs_dict[meta["id"]] = _fetch_one_series(session, meta["id"], api_key=api_key)
+            series_id = str(meta["id"])
+            try:
+                dfs_dict[series_id] = _fetch_one_series(session, series_id, api_key=api_key)
+            except Exception:
+                dfs_dict[series_id] = pd.DataFrame(columns=["data", "valor"])
+            try:
+                meta_dict[series_id] = _fetch_series_metadata(session, series_id, api_key=api_key)
+            except Exception:
+                meta_dict[series_id] = {}
     finally:
         session.close()
-    return dfs_dict
+    return dfs_dict, meta_dict
 
 
 def fetch_all_fred_indicators(api_key: str) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame], pd.DataFrame]:
     catalog = get_fred_catalog()
-    raw_dict = get_fred_data(api_key)
+    raw_dict, raw_meta_dict = get_fred_data(api_key)
 
     rows = []
     by_key: Dict[str, pd.DataFrame] = {}
@@ -109,6 +219,8 @@ def fetch_all_fred_indicators(api_key: str) -> Tuple[pd.DataFrame, Dict[str, pd.
         key = str(meta["key"])
         serie = raw_dict.get(series_id, pd.DataFrame(columns=["data", "valor"])).copy()
         by_key[key] = serie.copy()
+        serie_meta = raw_meta_dict.get(series_id, {})
+        resolved_freq = _normalize_fred_frequency(serie_meta, str(meta.get("frequencia", "")))
 
         if serie.empty:
             continue
@@ -116,6 +228,7 @@ def fetch_all_fred_indicators(api_key: str) -> Tuple[pd.DataFrame, Dict[str, pd.
         tmp = serie.copy()
         for col in catalog.columns:
             tmp[col] = meta[col]
+        tmp["frequencia"] = resolved_freq
         rows.append(tmp)
 
     if rows:
@@ -123,5 +236,16 @@ def fetch_all_fred_indicators(api_key: str) -> Tuple[pd.DataFrame, Dict[str, pd.
         df_long = df_long.sort_values(["key", "data"]).reset_index(drop=True)
     else:
         df_long = pd.DataFrame(columns=["data", "valor", *catalog.columns.tolist()])
+
+    if not df_long.empty:
+        freq_map = (
+            df_long[["key", "frequencia"]]
+            .dropna(subset=["key", "frequencia"])
+            .drop_duplicates(subset=["key"], keep="last")
+        )
+        if not freq_map.empty:
+            catalog = catalog.merge(freq_map, on="key", how="left", suffixes=("", "_api"))
+            catalog["frequencia"] = catalog["frequencia_api"].fillna(catalog["frequencia"])
+            catalog = catalog.drop(columns=["frequencia_api"])
 
     return df_long, by_key, catalog
