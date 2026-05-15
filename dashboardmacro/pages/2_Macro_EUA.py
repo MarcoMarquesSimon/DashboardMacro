@@ -56,6 +56,9 @@ INFLATION_FREQ_VARIANTS = {
         "Mensal": {"series_id": "PCEPILFE", "frequency": "m"},
         "Trimestral": {"series_id": "DPCCRV1Q225SBEA", "frequency": "q"},
     },
+    "trimmed_mean_pce_1m": {
+        "Mensal": {"series_id": "PCETRIM1M158SFRBDAL", "frequency": "m"},
+    },
 }
 
 
@@ -781,6 +784,24 @@ for idx in range(0, len(selected_keys), 2):
         meta = meta_by_key.loc[key]
         serie = by_key.get(key, pd.DataFrame(columns=["data", "valor"])).copy()
         periodicidade = str(meta.get("frequencia") or "")
+
+        # Fallback pontual para o grupo de Inflação:
+        # quando a série ainda não estiver no snapshot local, busca direto na API
+        # para preservar a visualização sem afetar outros grupos.
+        if normalize_text_key(selected_group) == "inflacao" and serie.empty:
+            freq_label = selected_frequency if selected_frequency != "Todas" else "Mensal"
+            variant = INFLATION_FREQ_VARIANTS.get(str(key), {}).get(freq_label)
+            if variant:
+                serie = load_fred_variant_series(
+                    DEFAULT_FRED_API_KEY,
+                    str(variant.get("series_id")),
+                    str(variant.get("frequency")),
+                )
+                if selected_frequency == "Todas":
+                    periodicidade = "mensal"
+                else:
+                    periodicidade = selected_frequency.lower()
+
         if normalize_text_key(selected_group) == "inflacao" and selected_frequency != "Todas":
             variant = INFLATION_FREQ_VARIANTS.get(str(key), {}).get(selected_frequency)
             if variant:

@@ -16,6 +16,7 @@ FRED_INDICATORS = [
     {"id": "CPIAUCSL", "key": "cpi", "indicador": "CPI", "descricao": "Indice de Precos ao Consumidor (inflacao cheia)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "indice", "tipo_grafico": "linhas"},
     {"id": "PCUOMFGOMFG", "key": "ppi", "indicador": "PPI", "descricao": "Indice de Precos ao Produtor", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "indice", "tipo_grafico": "linhas"},
     {"id": "DPCCRV1Q225SBEA", "key": "core_pce", "indicador": "Core PCE", "descricao": "Inflacao Core PCE, medida preferida do Fed", "frequencia": "trimestral", "grupo": "Inflacao", "unidade": "%", "tipo_grafico": "linhas"},
+    {"id": "PCETRIM1M158SFRBDAL", "key": "trimmed_mean_pce_1m", "indicador": "Trimmed Mean PCE (1m)", "descricao": "Trimmed Mean PCE Inflation Rate (1-month annualized)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "%", "tipo_grafico": "linhas"},
     {"id": "FEDFUNDS", "key": "fed_funds", "indicador": "Fed Funds Rate", "descricao": "Taxa basica de juros dos Estados Unidos", "frequencia": "mensal", "grupo": "Juros", "unidade": "%", "tipo_grafico": "linhas"},
     {"id": "DGS10", "key": "treasury_10y", "indicador": "10Y Treasury", "descricao": "Taxa do Treasury de 10 anos", "frequencia": "diaria", "grupo": "Juros", "unidade": "%", "tipo_grafico": "linhas"},
     {"id": "DGS2", "key": "treasury_2y", "indicador": "2Y Treasury", "descricao": "Taxa do Treasury de 2 anos", "frequencia": "diaria", "grupo": "Juros", "unidade": "%", "tipo_grafico": "linhas"},
