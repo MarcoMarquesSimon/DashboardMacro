@@ -36,6 +36,13 @@ def iso_now() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def rel_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(BASE_DIR))
+    except Exception:
+        return str(path)
+
+
 def write_metadata(meta: dict) -> None:
     META_PATH.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -76,7 +83,7 @@ def update_macro_brasil() -> dict:
         "updated_at": iso_now(),
         "rows": int(len(df_long)),
         "indicators": int(df_long["key"].nunique()) if "key" in df_long.columns and not df_long.empty else 0,
-        "path": str(BR_SNAPSHOT_CSV_PATH),
+        "path": rel_path(BR_SNAPSHOT_CSV_PATH),
     }
 
 
@@ -88,7 +95,7 @@ def update_macro_eua() -> dict:
         "updated_at": iso_now(),
         "rows": int(len(df_long)),
         "indicators": int(len(catalog)),
-        "path": str(US_SNAPSHOT_CSV_PATH),
+        "path": rel_path(US_SNAPSHOT_CSV_PATH),
     }
 
 
@@ -100,7 +107,7 @@ def update_tesouro_direto() -> dict:
         "updated_at": iso_now(),
         "rows": int(len(df)),
         "titles": int(df["Tipo Titulo"].nunique()) if "Tipo Titulo" in df.columns and not df.empty else 0,
-        "path": str(TESOURO_SNAPSHOT_CSV_PATH),
+        "path": rel_path(TESOURO_SNAPSHOT_CSV_PATH),
     }
 
 

@@ -10,7 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from dados_fred import fetch_all_fred_indicators, fetch_series_variant
+from dados_fred import fetch_all_fred_indicators, fetch_series_variant, get_fred_catalog
 
 
 st.set_page_config(page_title="Painel Macro EUA", page_icon="📊", layout="wide")
@@ -387,6 +387,27 @@ def load_fred_snapshot_panel(_version: str, _snapshot_mtime: float):
     return catalog, df_long, by_key
 
 
+def merge_catalog_with_master(catalog: pd.DataFrame) -> pd.DataFrame:
+    """Garante que indicadores novos do catálogo-base apareçam mesmo com snapshot antigo."""
+    master = get_fred_catalog().copy()
+    if catalog is None or catalog.empty:
+        out = master
+    else:
+        current = catalog.copy()
+        if "key" not in current.columns:
+            return master
+        current_keys = set(current["key"].astype(str))
+        missing = master[~master["key"].astype(str).isin(current_keys)].copy()
+        out = pd.concat([current, missing], ignore_index=True, sort=False)
+
+    if "ordem" in out.columns:
+        out["ordem"] = pd.to_numeric(out["ordem"], errors="coerce").fillna(9999)
+        out = out.sort_values(["grupo", "ordem", "indicador"], na_position="last").reset_index(drop=True)
+    else:
+        out = out.sort_values(["grupo", "indicador"], na_position="last").reset_index(drop=True)
+    return out
+
+
 def normalize_text_key(value: str) -> str:
     text = str(value or "").strip().lower()
     text = unicodedata.normalize("NFKD", text)
@@ -631,6 +652,7 @@ try:
 except Exception as exc:
     st.error(f"Não foi possível carregar os dados do FRED agora. Detalhe: {exc}")
     st.stop()
+catalog = merge_catalog_with_master(catalog)
 ranges_df = indicator_available_ranges(df_long)
 meta_by_key = catalog.drop_duplicates("key").set_index("key")
 
