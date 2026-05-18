@@ -428,6 +428,22 @@ def indicator_available_ranges(df_long: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def ranges_from_by_key(by_key_map: dict[str, pd.DataFrame], keys: list[str]) -> pd.DataFrame:
+    rows = []
+    for key in keys:
+        serie = by_key_map.get(str(key), pd.DataFrame(columns=["data", "valor"]))
+        if serie is None or serie.empty:
+            continue
+        tmp = serie.copy()
+        tmp["data"] = pd.to_datetime(tmp["data"], errors="coerce")
+        tmp["valor"] = pd.to_numeric(tmp["valor"], errors="coerce")
+        tmp = tmp.dropna(subset=["data", "valor"])
+        if tmp.empty:
+            continue
+        rows.append({"key": str(key), "data_min": tmp["data"].min(), "data_max": tmp["data"].max()})
+    return pd.DataFrame(rows)
+
+
 def preset_dates(period: str, min_date: pd.Timestamp, max_date: pd.Timestamp) -> tuple[pd.Timestamp, pd.Timestamp]:
     if period == "Tudo":
         return min_date, max_date
@@ -549,10 +565,18 @@ def _line_segments(df_plot: pd.DataFrame) -> Iterable[tuple[pd.DataFrame, str]]:
     for i in range(1, len(work)):
         segment_ids.append(segment_ids[-1] + int(signs[i] != signs[i - 1]))
     work["segment"] = segment_ids
-    return [
-        (chunk, COR_POSITIVA if float(chunk["valor"].iloc[-1]) >= 0 else COR_NEGATIVA)
-        for _, chunk in work.groupby("segment")
-    ]
+    chunks = [chunk.copy() for _, chunk in work.groupby("segment")]
+    stitched: list[tuple[pd.DataFrame, str]] = []
+    for idx, chunk in enumerate(chunks):
+        draw = chunk.copy()
+        # Para manter continuidade visual na troca de sinal,
+        # reaproveita o último ponto do segmento anterior.
+        if idx > 0:
+            prev_last = chunks[idx - 1].iloc[[-1]].copy()
+            draw = pd.concat([prev_last, draw], ignore_index=True)
+        color = COR_POSITIVA if float(chunk["valor"].iloc[-1]) >= 0 else COR_NEGATIVA
+        stitched.append((draw, color))
+    return stitched
 
 
 def build_indicator_chart(serie: pd.DataFrame) -> go.Figure:
@@ -571,6 +595,7 @@ def build_indicator_chart(serie: pd.DataFrame) -> go.Figure:
                 marker=dict(size=5, color=color),
                 hovertemplate="%{x|%d/%m/%Y}<br>%{y:,.2f}<extra></extra>",
                 showlegend=False,
+                connectgaps=True,
             )
         )
 
@@ -629,6 +654,8 @@ if "fred_group_last_applied" not in st.session_state:
     st.session_state["fred_group_last_applied"] = active_group
 if "fred_period" not in st.session_state:
     st.session_state["fred_period"] = "1Y"
+if "fred_period_last_applied" not in st.session_state:
+    st.session_state["fred_period_last_applied"] = st.session_state["fred_period"]
 if "fred_compare_base100" not in st.session_state:
     st.session_state["fred_compare_base100"] = False
 if "fred_dt_ini_value" not in st.session_state:
@@ -675,6 +702,21 @@ with col_period:
 selected_range_rows = ranges_df[ranges_df["key"].isin(selected_keys)].copy()
 if selected_range_rows.empty:
     selected_range_rows = ranges_df[ranges_df["key"].isin(valid_keys_for_group)].copy()
+
+# Se o snapshot não tiver ranges de algumas chaves novas, completa com ranges do by_key.
+missing_selected = [k for k in selected_keys if k not in set(selected_range_rows["key"].astype(str))]
+if missing_selected:
+    ranges_local = ranges_from_by_key(by_key, missing_selected)
+    if not ranges_local.empty:
+        selected_range_rows = pd.concat([selected_range_rows, ranges_local], ignore_index=True)
+
+# Último fallback: consulta live apenas para chaves ainda sem range
+missing_selected = [k for k in selected_keys if k not in set(selected_range_rows["key"].astype(str))]
+if missing_selected:
+    _, _, by_key_live = load_fred_panel(DEFAULT_FRED_API_KEY, DATA_PIPELINE_VERSION)
+    ranges_live = ranges_from_by_key(by_key_live, missing_selected)
+    if not ranges_live.empty:
+        selected_range_rows = pd.concat([selected_range_rows, ranges_live], ignore_index=True)
 if selected_range_rows.empty:
     global_min = pd.Timestamp.today().normalize()
     global_max = pd.Timestamp.today().normalize()
@@ -682,14 +724,28 @@ else:
     global_min = selected_range_rows["data_min"].min().normalize()
     global_max = selected_range_rows["data_max"].max().normalize()
 
-signature = (selected_group, tuple(selected_keys), period)
-if st.session_state.get("fred_period_signature") != signature:
+# Prioridade clara:
+# 1) quando o período muda, ele reaplica datas preset;
+# 2) mudanças de grupo/indicador preservam datas manuais, apenas com clamp no novo limite.
+if st.session_state.get("fred_period_last_applied") != period:
     preset_ini, preset_fim = preset_dates(period, global_min, global_max)
     st.session_state["fred_dt_ini_value"] = preset_ini.date()
     st.session_state["fred_dt_fim_value"] = preset_fim.date()
     st.session_state["fred_dt_ini_input"] = preset_ini.date()
     st.session_state["fred_dt_fim_input"] = preset_fim.date()
-    st.session_state["fred_period_signature"] = signature
+    st.session_state["fred_period_last_applied"] = period
+else:
+    curr_ini = pd.to_datetime(st.session_state.get("fred_dt_ini_value"), errors="coerce")
+    curr_fim = pd.to_datetime(st.session_state.get("fred_dt_fim_value"), errors="coerce")
+    adj_ini, adj_fim = clamp_date_range(curr_ini, curr_fim, global_min, global_max)
+    if (
+        st.session_state.get("fred_dt_ini_value") != adj_ini.date()
+        or st.session_state.get("fred_dt_fim_value") != adj_fim.date()
+    ):
+        st.session_state["fred_dt_ini_value"] = adj_ini.date()
+        st.session_state["fred_dt_fim_value"] = adj_fim.date()
+        st.session_state["fred_dt_ini_input"] = adj_ini.date()
+        st.session_state["fred_dt_fim_input"] = adj_fim.date()
 
 with col_start:
     st.markdown('<div class="filter-label">In&iacute;cio</div>', unsafe_allow_html=True)
@@ -760,7 +816,7 @@ for idx in range(0, len(selected_keys), 2):
             str(meta.get("frequencia", "")),
             dt_ini,
             dt_fim,
-            "Mais pr?ximo dispon?vel",
+            "Intervalo exato",
         )
         if compare_base100 and not serie_resolved.empty:
             serie_resolved = normalize_base_100(serie_resolved)
