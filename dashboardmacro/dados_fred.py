@@ -13,9 +13,12 @@ FRED_SERIES_URL = "https://api.stlouisfed.org/fred/series/observations"
 FRED_SERIES_META_URL = "https://api.stlouisfed.org/fred/series"
 
 FRED_INDICATORS = [
-    {"id": "CPIAUCSL", "key": "cpi", "indicador": "CPI", "descricao": "Indice de Precos ao Consumidor (inflacao cheia)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "indice", "tipo_grafico": "linhas"},
-    {"id": "PCUOMFGOMFG", "key": "ppi", "indicador": "PPI", "descricao": "Indice de Precos ao Produtor", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "indice", "tipo_grafico": "linhas"},
-    {"id": "DPCCRV1Q225SBEA", "key": "core_pce", "indicador": "Core PCE", "descricao": "Inflacao Core PCE, medida preferida do Fed", "frequencia": "trimestral", "grupo": "Inflacao", "unidade": "%", "tipo_grafico": "linhas"},
+    {"id": "CPIAUCSL", "key": "cpi_mom", "indicador": "CPI All Items - Var. % mensal", "descricao": "CPI All Items variacao percentual mensal (MoM)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "%", "tipo_grafico": "linhas", "units": "pch"},
+    {"id": "CPIAUCSL", "key": "cpi_12m", "indicador": "CPI All Items - Var. % 12m", "descricao": "CPI All Items variacao percentual em 12 meses (YoY)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "%", "tipo_grafico": "linhas", "units": "pc1"},
+    {"id": "PPIACO", "key": "ppi_mom", "indicador": "PPI All Commodities - Var. % mensal", "descricao": "PPI All Commodities variacao percentual mensal (MoM)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "%", "tipo_grafico": "linhas", "units": "pch"},
+    {"id": "PPIACO", "key": "ppi_12m", "indicador": "PPI All Commodities - Var. % 12m", "descricao": "PPI All Commodities variacao percentual em 12 meses (YoY)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "%", "tipo_grafico": "linhas", "units": "pc1"},
+    {"id": "PCEPILFE", "key": "core_pce_mom", "indicador": "Core PCE - Var. % mensal", "descricao": "Core PCE variacao percentual mensal (MoM)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "%", "tipo_grafico": "linhas", "units": "pch"},
+    {"id": "PCEPILFE", "key": "core_pce_12m", "indicador": "Core PCE - Var. % 12m", "descricao": "Core PCE variacao percentual em 12 meses (YoY)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "%", "tipo_grafico": "linhas", "units": "pc1"},
     {"id": "PCETRIM1M158SFRBDAL", "key": "trimmed_mean_pce_1m", "indicador": "Trimmed Mean PCE (1m)", "descricao": "Trimmed Mean PCE Inflation Rate (1-month annualized)", "frequencia": "mensal", "grupo": "Inflacao", "unidade": "%", "tipo_grafico": "linhas"},
     {"id": "FEDFUNDS", "key": "fed_funds", "indicador": "Fed Funds Rate", "descricao": "Taxa basica de juros dos Estados Unidos", "frequencia": "mensal", "grupo": "Juros", "unidade": "%", "tipo_grafico": "linhas"},
     {"id": "DGS10", "key": "treasury_10y", "indicador": "10Y Treasury", "descricao": "Taxa do Treasury de 10 anos", "frequencia": "diaria", "grupo": "Juros", "unidade": "%", "tipo_grafico": "linhas"},
@@ -94,6 +97,7 @@ def _fetch_one_series_with_params(
     series_id: str,
     api_key: str,
     *,
+    units: str | None = None,
     frequency: str | None = None,
     aggregation_method: str | None = None,
     timeout: int = 30,
@@ -104,6 +108,8 @@ def _fetch_one_series_with_params(
         "file_type": "json",
         "sort_order": "asc",
     }
+    if units:
+        params["units"] = units
     if frequency:
         params["frequency"] = frequency
     if aggregation_method:
@@ -134,6 +140,7 @@ def fetch_series_variant(
     api_key: str,
     series_id: str,
     *,
+    units: str | None = None,
     frequency: str | None = None,
     aggregation_method: str = "avg",
 ) -> pd.DataFrame:
@@ -143,6 +150,7 @@ def fetch_series_variant(
             session,
             series_id,
             api_key,
+            units=units,
             frequency=frequency,
             aggregation_method=aggregation_method if frequency else None,
         )
@@ -194,8 +202,8 @@ def get_fred_data(api_key: str) -> Dict[str, pd.DataFrame]:
     dfs_dict: Dict[str, pd.DataFrame] = {}
     meta_dict: Dict[str, dict] = {}
     try:
-        for meta in FRED_INDICATORS:
-            series_id = str(meta["id"])
+        unique_series_ids = sorted({str(meta["id"]) for meta in FRED_INDICATORS})
+        for series_id in unique_series_ids:
             try:
                 dfs_dict[series_id] = _fetch_one_series(session, series_id, api_key=api_key)
             except Exception:
@@ -211,26 +219,35 @@ def get_fred_data(api_key: str) -> Dict[str, pd.DataFrame]:
 
 def fetch_all_fred_indicators(api_key: str) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame], pd.DataFrame]:
     catalog = get_fred_catalog()
-    raw_dict, raw_meta_dict = get_fred_data(api_key)
+    _, raw_meta_dict = get_fred_data(api_key)
+    session = _make_session()
 
     rows = []
     by_key: Dict[str, pd.DataFrame] = {}
-    for _, meta in catalog.iterrows():
-        series_id = str(meta["id"])
-        key = str(meta["key"])
-        serie = raw_dict.get(series_id, pd.DataFrame(columns=["data", "valor"])).copy()
-        by_key[key] = serie.copy()
-        serie_meta = raw_meta_dict.get(series_id, {})
-        resolved_freq = _normalize_fred_frequency(serie_meta, str(meta.get("frequencia", "")))
+    try:
+        for _, meta in catalog.iterrows():
+            series_id = str(meta["id"])
+            key = str(meta["key"])
+            units_raw = str(meta.get("units") or "").strip().lower()
+            units = units_raw if units_raw not in {"", "nan", "none", "null"} else None
+            try:
+                serie = _fetch_one_series_with_params(session, series_id, api_key=api_key, units=units)
+            except Exception:
+                serie = pd.DataFrame(columns=["data", "valor"])
+            by_key[key] = serie.copy()
+            serie_meta = raw_meta_dict.get(series_id, {})
+            resolved_freq = str(meta.get("frequencia") or _normalize_fred_frequency(serie_meta, str(meta.get("frequencia", ""))))
 
-        if serie.empty:
-            continue
+            if serie.empty:
+                continue
 
-        tmp = serie.copy()
-        for col in catalog.columns:
-            tmp[col] = meta[col]
-        tmp["frequencia"] = resolved_freq
-        rows.append(tmp)
+            tmp = serie.copy()
+            for col in catalog.columns:
+                tmp[col] = meta[col]
+            tmp["frequencia"] = resolved_freq
+            rows.append(tmp)
+    finally:
+        session.close()
 
     if rows:
         df_long = pd.concat(rows, ignore_index=True)

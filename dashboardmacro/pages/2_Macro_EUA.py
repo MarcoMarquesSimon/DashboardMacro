@@ -10,7 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from dados_fred import fetch_all_fred_indicators, fetch_series_variant, get_fred_catalog
+from dados_fred import fetch_all_fred_indicators, get_fred_catalog
 
 
 st.set_page_config(page_title="Painel Macro EUA", page_icon="📊", layout="wide")
@@ -29,38 +29,10 @@ CASAS = 2
 BASE_DIR = Path(__file__).resolve().parents[1]
 SNAPSHOT_US_PATH = BASE_DIR / "data" / "macro_eua_snapshot.pkl"
 SNAPSHOT_US_CSV_PATH = BASE_DIR / "data" / "macro_eua_snapshot.csv.gz"
-DATA_PIPELINE_VERSION = "2026-04-15-v1"
+DATA_PIPELINE_VERSION = "2026-05-18-v2"
 DEFAULT_FRED_API_KEY = "da9de0f64ae8f49db8bfc2b01d51c163"
 
 PERIOD_OPTIONS = ["6M", "1Y", "3Y", "5Y", "10Y", "YTD", "Tudo"]
-FREQ_OPTIONS_US = ["Todas", "Mensal", "Trimestral", "Diária", "Semanal", "Quinzenal", "Anual"]
-FREQ_LABEL_TO_FRED = {
-    "Mensal": "m",
-    "Trimestral": "q",
-    "Diária": "d",
-    "Semanal": "w",
-    "Quinzenal": "bw",
-    "Anual": "a",
-}
-
-INFLATION_FREQ_VARIANTS = {
-    "cpi": {
-        "Mensal": {"series_id": "CPIAUCSL", "frequency": "m"},
-        "Trimestral": {"series_id": "CPIAUCSL", "frequency": "q"},
-    },
-    "ppi": {
-        "Mensal": {"series_id": "PCUOMFGOMFG", "frequency": "m"},
-        "Trimestral": {"series_id": "PCUOMFGOMFG", "frequency": "q"},
-    },
-    "core_pce": {
-        "Mensal": {"series_id": "PCEPILFE", "frequency": "m"},
-        "Trimestral": {"series_id": "DPCCRV1Q225SBEA", "frequency": "q"},
-    },
-    "trimmed_mean_pce_1m": {
-        "Mensal": {"series_id": "PCETRIM1M158SFRBDAL", "frequency": "m"},
-    },
-}
-
 
 st.markdown(
     f"""
@@ -350,17 +322,6 @@ def load_fred_panel(api_key: str, _version: str):
 
 
 @st.cache_data(show_spinner=False, persist="disk")
-def load_fred_variant_series(api_key: str, series_id: str, frequency: str):
-    df = fetch_series_variant(api_key, series_id, frequency=frequency, aggregation_method="avg")
-    if df.empty:
-        return df
-    out = df.copy()
-    out["data"] = pd.to_datetime(out["data"], errors="coerce")
-    out["valor"] = pd.to_numeric(out["valor"], errors="coerce")
-    return out.dropna(subset=["data"]).sort_values("data").reset_index(drop=True)
-
-
-@st.cache_data(show_spinner=False, persist="disk")
 def load_fred_snapshot_panel(_version: str, _snapshot_mtime: float):
     if not SNAPSHOT_US_CSV_PATH.exists() and not SNAPSHOT_US_PATH.exists():
         empty = pd.DataFrame(columns=["data", "valor", "key"])
@@ -388,23 +349,22 @@ def load_fred_snapshot_panel(_version: str, _snapshot_mtime: float):
 
 
 def merge_catalog_with_master(catalog: pd.DataFrame) -> pd.DataFrame:
-    """Garante que indicadores novos do catálogo-base apareçam mesmo com snapshot antigo."""
+    """Usa o catálogo-base como fonte de verdade e reaproveita metadados úteis do snapshot."""
     master = get_fred_catalog().copy()
-    if catalog is None or catalog.empty:
+    if catalog is None or catalog.empty or "key" not in catalog.columns:
         out = master
     else:
         current = catalog.copy()
-        if "key" not in current.columns:
-            return master
-        current_keys = set(current["key"].astype(str))
-        missing = master[~master["key"].astype(str).isin(current_keys)].copy()
-        out = pd.concat([current, missing], ignore_index=True, sort=False)
+        current["key"] = current["key"].astype(str)
+        current_meta = current.drop_duplicates("key").set_index("key")
+        out = master.copy()
+        out["key"] = out["key"].astype(str)
+        for col in ["frequencia", "unidade", "tipo_grafico"]:
+            if col in current_meta.columns:
+                out[col] = out["key"].map(current_meta[col]).fillna(out[col])
 
-    if "ordem" in out.columns:
-        out["ordem"] = pd.to_numeric(out["ordem"], errors="coerce").fillna(9999)
-        out = out.sort_values(["grupo", "ordem", "indicador"], na_position="last").reset_index(drop=True)
-    else:
-        out = out.sort_values(["grupo", "indicador"], na_position="last").reset_index(drop=True)
+    out["ordem"] = pd.to_numeric(out.get("ordem"), errors="coerce").fillna(9999)
+    out = out.sort_values(["grupo", "ordem", "indicador"], na_position="last").reset_index(drop=True)
     return out
 
 
@@ -685,19 +645,6 @@ col_group, col_ind, col_period, col_start, col_end = st.columns([1, 1, 1, 1, 1],
 with col_group:
     st.markdown('<div class="filter-label">Grupo</div>', unsafe_allow_html=True)
     selected_group = st.selectbox("Grupo", groups, key="fred_group", label_visibility="collapsed")
-    is_inflation_group = normalize_text_key(selected_group) == "inflacao"
-    if "fred_frequency_filter" not in st.session_state:
-        st.session_state["fred_frequency_filter"] = "Todas"
-    if is_inflation_group:
-        st.markdown('<div class="filter-label" style="margin-top:0.55rem;">Frequ&ecirc;ncia</div>', unsafe_allow_html=True)
-        st.selectbox(
-            "Frequencia",
-            FREQ_OPTIONS_US,
-            key="fred_frequency_filter",
-            label_visibility="collapsed",
-        )
-    else:
-        st.session_state["fred_frequency_filter"] = "Todas"
 
 group_catalog = catalog[catalog["grupo"] == selected_group].copy()
 valid_keys_for_group = list(group_catalog["key"])
@@ -725,8 +672,6 @@ if not selected_keys:
 with col_period:
     st.markdown('<div class="filter-label">Per&iacute;odo</div>', unsafe_allow_html=True)
     period = st.selectbox("Periodo", PERIOD_OPTIONS, key="fred_period", label_visibility="collapsed")
-selected_frequency = st.session_state.get("fred_frequency_filter", "Todas")
-
 selected_range_rows = ranges_df[ranges_df["key"].isin(selected_keys)].copy()
 if selected_range_rows.empty:
     selected_range_rows = ranges_df[ranges_df["key"].isin(valid_keys_for_group)].copy()
@@ -768,12 +713,6 @@ with col_end:
         label_visibility="collapsed",
     )
 
-if normalize_text_key(selected_group) == "inflacao" and selected_frequency != "Todas":
-    selected_keys = [key for key in selected_keys if selected_frequency in INFLATION_FREQ_VARIANTS.get(str(key), {})]
-    if not selected_keys:
-        st.info(f"Nenhum indicador de Inflação disponível na frequência '{selected_frequency}'.")
-        st.stop()
-
 row_a, row_b, row_c, row_d, row_e = st.columns(5, gap="medium")
 with row_a:
     st.markdown('<div class="filter-action filter-row-bottom"></div>', unsafe_allow_html=True)
@@ -807,32 +746,10 @@ for idx in range(0, len(selected_keys), 2):
         serie = by_key.get(key, pd.DataFrame(columns=["data", "valor"])).copy()
         periodicidade = str(meta.get("frequencia") or "")
 
-        # Fallback pontual para o grupo de Inflação:
-        # quando a série ainda não estiver no snapshot local, busca direto na API
-        # para preservar a visualização sem afetar outros grupos.
-        if normalize_text_key(selected_group) == "inflacao" and serie.empty:
-            freq_label = selected_frequency if selected_frequency != "Todas" else "Mensal"
-            variant = INFLATION_FREQ_VARIANTS.get(str(key), {}).get(freq_label)
-            if variant:
-                serie = load_fred_variant_series(
-                    DEFAULT_FRED_API_KEY,
-                    str(variant.get("series_id")),
-                    str(variant.get("frequency")),
-                )
-                if selected_frequency == "Todas":
-                    periodicidade = "mensal"
-                else:
-                    periodicidade = selected_frequency.lower()
+        if serie.empty:
+            _, _, by_key_live = load_fred_panel(DEFAULT_FRED_API_KEY, DATA_PIPELINE_VERSION)
+            serie = by_key_live.get(str(key), pd.DataFrame(columns=["data", "valor"])).copy()
 
-        if normalize_text_key(selected_group) == "inflacao" and selected_frequency != "Todas":
-            variant = INFLATION_FREQ_VARIANTS.get(str(key), {}).get(selected_frequency)
-            if variant:
-                serie = load_fred_variant_series(
-                    DEFAULT_FRED_API_KEY,
-                    str(variant.get("series_id")),
-                    str(variant.get("frequency")),
-                )
-                periodicidade = selected_frequency.lower()
         if not serie.empty:
             serie["data"] = pd.to_datetime(serie["data"], errors="coerce")
             serie["valor"] = pd.to_numeric(serie["valor"], errors="coerce")
