@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -112,17 +113,34 @@ def update_tesouro_direto() -> dict:
 
 
 def main() -> None:
+    failed: list[str] = []
+
     print("Atualizando snapshot Macro Brasil...")
-    br_meta = update_macro_brasil()
-    print(f"Macro Brasil OK: {br_meta['rows']} linhas, {br_meta['indicators']} indicadores.")
+    try:
+        br_meta = update_macro_brasil()
+        print(f"Macro Brasil OK: {br_meta['rows']} linhas, {br_meta['indicators']} indicadores.")
+    except Exception as exc:
+        print(f"ERRO Macro Brasil: {exc}")
+        br_meta = None
+        failed.append("macro_brasil")
 
     print("Atualizando snapshot Macro EUA...")
-    us_meta = update_macro_eua()
-    print(f"Macro EUA OK: {us_meta['rows']} linhas, {us_meta['indicators']} indicadores.")
+    try:
+        us_meta = update_macro_eua()
+        print(f"Macro EUA OK: {us_meta['rows']} linhas, {us_meta['indicators']} indicadores.")
+    except Exception as exc:
+        print(f"ERRO Macro EUA: {exc}")
+        us_meta = None
+        failed.append("macro_eua")
 
     print("Atualizando snapshot Renda Fixa...")
-    tesouro_meta = update_tesouro_direto()
-    print(f"Renda Fixa OK: {tesouro_meta['rows']} linhas, {tesouro_meta['titles']} tipos de título.")
+    try:
+        tesouro_meta = update_tesouro_direto()
+        print(f"Renda Fixa OK: {tesouro_meta['rows']} linhas, {tesouro_meta['titles']} tipos de título.")
+    except Exception as exc:
+        print(f"ERRO Renda Fixa: {exc}")
+        tesouro_meta = None
+        failed.append("tesouro_direto")
 
     write_metadata(
         {
@@ -133,6 +151,10 @@ def main() -> None:
         }
     )
     print(f"Metadados salvos em {META_PATH}")
+
+    if failed:
+        print(f"FALHA nas fontes: {', '.join(failed)}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
