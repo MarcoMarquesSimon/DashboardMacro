@@ -152,8 +152,10 @@ def main() -> None:
     )
     print(f"Metadados salvos em {META_PATH}")
 
+    critical_failed = [f for f in failed if f != "tesouro_direto"]
     if failed:
         print(f"FALHA nas fontes: {', '.join(failed)}")
+    if critical_failed:
         sys.exit(1)
 
 
