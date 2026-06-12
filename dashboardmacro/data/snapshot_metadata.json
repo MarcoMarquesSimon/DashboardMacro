@@ -1,20 +1,20 @@
 {
-  "generated_at": "2026-06-11 12:44:58",
+  "generated_at": "2026-06-12 12:19:00",
   "macro_brasil": {
-    "updated_at": "2026-06-11 12:44:21",
-    "rows": 51787,
+    "updated_at": "2026-06-12 12:18:28",
+    "rows": 51789,
     "indicators": 51,
     "path": "data/macro_brasil_snapshot.csv.gz"
   },
   "macro_eua": {
-    "updated_at": "2026-06-11 12:44:32",
-    "rows": 58161,
+    "updated_at": "2026-06-12 12:18:42",
+    "rows": 58166,
     "indicators": 21,
     "path": "data/macro_eua_snapshot.csv.gz"
   },
   "tesouro_direto": {
-    "updated_at": "2026-06-11 12:44:58",
-    "rows": 172178,
+    "updated_at": "2026-06-12 12:19:00",
+    "rows": 172238,
     "titles": 8,
     "path": "data/tesouro_direto_snapshot.csv.gz"
   }
