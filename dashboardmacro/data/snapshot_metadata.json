@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-11-21 16:36:26",
+  "generated_at": "2026-11-22 16:53:54",
   "macro_brasil": {
-    "updated_at": "2026-11-21 16:35:11",
-    "rows": 52162,
-    "indicators": 50,
+    "updated_at": "2026-11-22 16:52:45",
+    "rows": 51212,
+    "indicators": 48,
     "path": "data/macro_brasil_snapshot.csv.gz"
   },
   "macro_eua": {
-    "updated_at": "2026-11-21 16:35:31",
+    "updated_at": "2026-11-22 16:53:01",
     "rows": 58691,
     "indicators": 21,
     "path": "data/macro_eua_snapshot.csv.gz"
